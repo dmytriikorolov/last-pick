@@ -1,0 +1,39 @@
+:root { color-scheme: dark; font-family: system-ui, sans-serif; background: #101519; color: #e8e9e5; }
+* { box-sizing: border-box; }
+body { margin: 0; background: radial-gradient(ellipse at top, #283339, #101519 65%); min-height: 100vh; }
+main { max-width: 1180px; margin: auto; padding: 36px 24px; }
+h1 { font-size: 38px; margin: 8px 0; font-weight: 600; }
+p { color: #9cabae; font-size: 14px; }
+.eyebrow { color: #c5a36a; letter-spacing: 3px; font-size: 12px; }
+.teams { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 28px 0 18px; }
+.team { background: #151e23; border: 1px solid #354148; padding: 16px; border-radius: 6px; }
+.team.active { border-color: #c5a36a; box-shadow: 0 0 0 1px #c5a36a; }
+button { cursor: pointer; font: inherit; color: inherit; border: 1px solid #455158; background: #263239; border-radius: 3px; }
+button:focus-visible, input:focus-visible { outline: 2px solid #edd39a; outline-offset: 3px; }
+.team-target { display: flex; justify-content: space-between; width: 100%; background: none; border: 0; padding: 0 0 14px; letter-spacing: 2px; font-size: 12px; }
+#allies .team-target { color: #80cbb5; } #enemies .team-target { color: #e89789; }
+.slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.slot { padding: 0; aspect-ratio: 16 / 10; font-size: 24px; color: #687b82; overflow: hidden; background: #0c1317; }
+img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.controls { display: flex; gap: 10px; flex-wrap: wrap; }
+.controls button { padding: 12px 18px; }
+#recommend { background: #b38b4b; color: #101519; font-weight: 700; letter-spacing: 1px; }
+#recommend:disabled { opacity: .35; cursor: default; }
+#status { min-height: 20px; }
+.search-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 28px; }
+input { background: #10191e; border: 1px solid #43525b; padding: 12px 16px; border-radius: 4px; color: inherit; width: 320px; max-width: 100%; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 2px; color: #b8c3c5; margin: 22px 0 12px; }
+.portraits { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 7px; }
+.hero { padding: 0; position: relative; aspect-ratio: 16 / 10; overflow: hidden; border: 2px solid transparent; }
+.hero:hover { border-color: #d4b576; }
+.hero.allies { border-color: #65c8a9; } .hero.enemies { border-color: #e48070; }
+.hero.banned img { filter: grayscale(1) brightness(.25); }
+.badge { position: absolute; bottom: 0; right: 0; background: #101519dd; font-size: 9px; padding: 2px 5px; }
+.allies .badge { color: #80cbb5; } .enemies .badge { color: #e89789; }
+.banned .badge { inset: 0; display: grid; place-items: center; background: transparent; color: #e48070; font-size: 28px; }
+#results { background: #192328; padding: 2px 20px 16px; border: 1px solid #455158; border-radius: 5px; }
+ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+li { display: flex; align-items: center; gap: 16px; background: #111a1f; padding-right: 16px; }
+li img { width: 82px; height: 48px; } li strong { margin-left: auto; color: #d4b576; font-variant-numeric: tabular-nums; }
+[hidden] { display: none !important; }
+@media (max-width: 650px) { main { padding: 24px 14px; } .teams { grid-template-columns: 1fr; } .search-row { align-items: stretch; flex-direction: column; } .portraits { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); } }

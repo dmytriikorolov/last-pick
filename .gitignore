@@ -1,0 +1,12 @@
+__pycache__/
+.DS_Store
+*.py[cod]
+.pytest_cache/
+.venv/
+.idea/
+data/raw/
+data/interim/
+data/processed/
+data/archive/
+.env
+dist/

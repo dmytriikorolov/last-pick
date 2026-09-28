@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ISP · Carry recommender</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script id="hero-data" type="application/json">{{ heroes | tojson }}</script>
+  <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+</head>
+<body>
+<main>
+  <header><span class="eyebrow">ISP / FINAL PICK</span><h1>Find your carry.</h1>
+    <p>Four allies. Four enemies. Your position-1 pick.</p></header>
+  <div class="teams">
+    <section class="team active" id="allies" aria-label="Your team">
+      <button class="team-target" data-side="allies">YOUR TEAM <span>0 / 4</span></button>
+      <div class="slots"></div>
+    </section>
+    <section class="team" id="enemies" aria-label="Enemy team">
+      <button class="team-target" data-side="enemies">ENEMY TEAM <span>0 / 4</span></button>
+      <div class="slots"></div>
+    </section>
+  </div>
+  <div class="controls"><button id="recommend" disabled>RECOMMEND CARRY</button>
+    <button id="example">Example draft</button><button id="clear">Clear draft</button></div>
+  <p id="status" role="status" aria-live="polite">Select 4 heroes for each team.</p>
+  <section id="results" hidden><h2>Top 5 carries</h2>
+    <p>Model scores / estimated win probabilities. These are not guarantees.</p><ol></ol></section>
+  <div class="search-row"><input id="search" type="search" placeholder="Search heroes..." aria-label="Search heroes">
+    <p>Left click to add · Click a slot to remove · Right click to ban</p></div>
+  <div id="hero-grid"></div>
+</main>
+</body>
+</html>

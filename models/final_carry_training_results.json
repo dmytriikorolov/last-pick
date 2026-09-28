@@ -1,0 +1,111 @@
+{
+  "name": "historical_nn",
+  "train_rows": 73558,
+  "validation_rows": 12275,
+  "test_rows": 22205,
+  "validation_cutoff": 1787455489,
+  "test_cutoff": 1787508952,
+  "candidate_pool_size": 44,
+  "historical_fields": [
+    "hero_win_rate",
+    "hero_log_games",
+    "early_win_rate",
+    "mid_win_rate",
+    "late_win_rate",
+    "early_reliability",
+    "mid_reliability",
+    "late_reliability",
+    "avg_gpm",
+    "avg_gold_10",
+    "avg_lh_10",
+    "farm_reliability",
+    "synergy_mean_delta",
+    "synergy_max_delta",
+    "synergy_mean_log_games",
+    "synergy_mean_reliability",
+    "matchup_mean_delta",
+    "matchup_min_delta",
+    "matchup_mean_log_games",
+    "matchup_mean_reliability"
+  ],
+  "historical_blocks": [
+    {
+      "start_time": 1780582584,
+      "rows": 14795,
+      "source_matches": 0,
+      "latest_source_time": 0
+    },
+    {
+      "start_time": 1780635486,
+      "rows": 14692,
+      "source_matches": 8415,
+      "latest_source_time": 1780635476
+    },
+    {
+      "start_time": 1780683957,
+      "rows": 14356,
+      "source_matches": 16795,
+      "latest_source_time": 1780683953
+    },
+    {
+      "start_time": 1780740404,
+      "rows": 15008,
+      "source_matches": 24986,
+      "latest_source_time": 1780740403
+    },
+    {
+      "start_time": 1780785070,
+      "rows": 14707,
+      "source_matches": 33543,
+      "latest_source_time": 1780785069
+    }
+  ],
+  "trainable_parameters": 13313,
+  "test_metrics": {
+    "accuracy": 0.534519252420626,
+    "roc_auc": 0.545760960868031,
+    "log_loss": 0.6899946928024292,
+    "brier_score": 0.248422771692276
+  },
+  "model_path": "/Users/dima/me/isp/models/final_carry_recommender.pt",
+  "best_epoch": 2,
+  "validation_loss": 0.6915258765220642,
+  "epochs": [
+    {
+      "epoch": 1,
+      "accuracy": 0.5234215885947047,
+      "roc_auc": 0.5345492882834029,
+      "log_loss": 0.6920939683914185,
+      "brier_score": 0.2494693100452423
+    },
+    {
+      "epoch": 2,
+      "accuracy": 0.5247250509164969,
+      "roc_auc": 0.5343633883925185,
+      "log_loss": 0.6915258765220642,
+      "brier_score": 0.2491888701915741
+    },
+    {
+      "epoch": 3,
+      "accuracy": 0.5285539714867618,
+      "roc_auc": 0.5404967041169385,
+      "log_loss": 0.6920379400253296,
+      "brier_score": 0.24941831827163696
+    },
+    {
+      "epoch": 4,
+      "accuracy": 0.5319755600814664,
+      "roc_auc": 0.540671040856715,
+      "log_loss": 0.6929219961166382,
+      "brier_score": 0.24982385337352753
+    },
+    {
+      "epoch": 5,
+      "accuracy": 0.5284725050916497,
+      "roc_auc": 0.5384402421661045,
+      "log_loss": 0.6953959465026855,
+      "brier_score": 0.25096839666366577
+    }
+  ],
+  "training_seconds": 3.62
+}
