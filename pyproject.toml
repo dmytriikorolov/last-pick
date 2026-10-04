@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lastpick"
+version = "2.0.0"
+description = "Dota 2 carry draft decisions and leakage-safe recommendation research"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+ml = ["numpy>=1.26,<3", "scipy>=1.11,<2", "scikit-learn>=1.4,<2", "torch>=2.2,<3"]
+web = ["lastpick[ml]", "Flask>=3.1,<4"]
+dev = ["pytest>=8,<9", "ruff>=0.11,<1", "mypy>=1.15,<2"]
+
+[project.scripts]
+lastpick = "lastpick.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", ".", "tests"]
+cache_dir = ".pytest_cache"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*.py" = ["F403", "F405"]
+
+[tool.mypy]
+files = ["src/lastpick"]
+exclude = ["src/lastpick/legacy/", "src/lastpick/models/carry.py", "src/lastpick/models/training.py", "src/lastpick/features/carry.py", "src/lastpick/recommender/carry.py"]
+python_version = "3.11"
+strict = true
+follow_imports = "silent"
+ignore_missing_imports = true
+
