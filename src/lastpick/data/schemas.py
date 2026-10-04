@@ -1,6 +1,6 @@
 """JSON-friendly domain records; None means unavailable, never measured zero."""
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any
 
 SCHEMA_VERSION = "2.0"
@@ -110,6 +110,7 @@ class RolePrediction:
     method: str
     version: str
     reason: str | None = None
+    position_probabilities: dict[int, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -133,6 +134,7 @@ class DraftDecision:
     start_time: int | None
     outcome: bool
     legal_candidates: tuple[int, ...] | None = None
+    candidate_universe: tuple[int, ...] | None = None
     schema_version: str = SCHEMA_VERSION
 
 
@@ -152,5 +154,33 @@ def match_from_record(value: dict[str, Any]) -> Match:
             if row.get(name) is not None:
                 row[name] = tuple(row[name])
         players.append(Player(**row))
-    return Match(**dict(value, players=tuple(players),
-                        events=tuple(DraftEvent(**e) for e in value["events"])))
+    return Match(
+        **dict(
+            value, players=tuple(players), events=tuple(DraftEvent(**e) for e in value["events"])
+        )
+    )
+
+
+def decision_from_record(value: dict[str, Any]) -> DraftDecision:
+    if value.get("schema_version") != SCHEMA_VERSION:
+        raise Rejection("unsupported_schema")
+    data = dict(value)
+    role = dict(data["role"])
+    role["scores"] = {int(slot): score for slot, score in role["scores"].items()}
+    if role.get("position_probabilities") is not None:
+        role["position_probabilities"] = {
+            int(position): probability
+            for position, probability in role["position_probabilities"].items()
+        }
+    data["role"] = RolePrediction(**role)
+    for key in (
+        "visible_allies",
+        "visible_enemies",
+        "visible_bans",
+        "unlocated_bans",
+        "legal_candidates",
+        "candidate_universe",
+    ):
+        if data.get(key) is not None:
+            data[key] = tuple(data[key])
+    return DraftDecision(**data)

@@ -1,10 +1,10 @@
 """Small, explicit TOML configuration. All paths are relative to a project root."""
 
+import os
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-import tomllib
-import os
 
 
 @dataclass(frozen=True)
@@ -39,6 +39,11 @@ class RoleSettings:
     min_score_gap: float = 0.15
     position_est_weight: float = 0.15
     farm_weight: float = 0.85
+    separation_scale: float = 2
+    confidence_base: float = 0.5
+    confidence_farm_weight: float = 0.3
+    confidence_per_timestamp: float = 0.05
+    max_confidence: float = 0.95
 
 
 @dataclass(frozen=True)
@@ -60,6 +65,13 @@ class IngestionSettings:
     timeout_seconds: float = 30
     retries: int = 3
     retry_seconds: float = 5
+
+
+@dataclass(frozen=True)
+class FeatureSettings:
+    prior_games: float = 100
+    early_seconds: int = 1800
+    late_seconds: int = 2700
 
 
 @dataclass(frozen=True)
@@ -93,6 +105,7 @@ class Config:
     roles: RoleSettings = field(default_factory=RoleSettings)
     dataset: DatasetSettings = field(default_factory=DatasetSettings)
     ingestion: IngestionSettings = field(default_factory=IngestionSettings)
+    features: FeatureSettings = field(default_factory=FeatureSettings)
     training: TrainingSettings = field(default_factory=TrainingSettings)
 
 
@@ -101,21 +114,43 @@ def load_config(path: Path | None = None) -> Config:
         return Config()
     with path.open("rb") as stream:
         data: dict[str, Any] = tomllib.load(stream)
-    sections = {"paths": Paths, "filters": Filters, "roles": RoleSettings,
-                "dataset": DatasetSettings, "ingestion": IngestionSettings,
-                "training": TrainingSettings}
+    sections = {
+        "paths": Paths,
+        "filters": Filters,
+        "roles": RoleSettings,
+        "dataset": DatasetSettings,
+        "ingestion": IngestionSettings,
+        "training": TrainingSettings,
+        "features": FeatureSettings,
+    }
     for name, constructor in sections.items():
         values = data.pop(name, {})
-        values = {key: tuple(value) if isinstance(value, list) else value
-                  for key, value in values.items()}
+        values = {
+            key: tuple(value) if isinstance(value, list) else value for key, value in values.items()
+        }
         data[name] = constructor(**values)
     config = Config(**data)
-    if config.source != "opendota":
-        raise ValueError("only the OpenDota adapter is implemented")
+    if not config.source:
+        raise ValueError("source cannot be empty")
     if config.roles.method not in {"farm-v2", "legacy"}:
         raise ValueError("unknown role inference method")
     if not 0 <= config.roles.min_confidence <= 1:
         raise ValueError("min_confidence must be in [0, 1]")
     if config.ingestion.retries < 1 or config.ingestion.request_budget < 1:
         raise ValueError("retries and request_budget must be positive")
+    if config.roles.min_lh_gap <= 0 or config.roles.min_gold_gap <= 0:
+        raise ValueError("role separation thresholds must be positive")
+    if config.roles.separation_scale <= 0 or not 0 < config.roles.max_confidence <= 1:
+        raise ValueError("invalid confidence settings")
+    if (
+        config.features.prior_games <= 0
+        or not 0 < config.features.early_seconds < config.features.late_seconds
+    ):
+        raise ValueError("invalid historical prior or duration boundaries")
+    if config.ingestion.discovery not in {"public", "explorer"}:
+        raise ValueError("unknown discovery policy")
+    if not config.filters.game_modes or not config.filters.lobby_types:
+        raise ValueError("game_modes and lobby_types cannot be empty")
+    if not set(config.dataset.picks) <= {3, 4, 5}:
+        raise ValueError("carry decisions support team picks 3–5")
     return config

@@ -14,8 +14,7 @@ def reconstruct(match: Match) -> Draft:
     events = sorted(match.events, key=lambda e: e.order)
     if len({e.order for e in events}) != len(events):
         raise Rejection("ambiguous_event_orders")
-    if any(e.order < 0 or e.hero_id <= 0 or (e.is_pick and e.team not in (0, 1))
-           for e in events):
+    if any(e.order < 0 or e.hero_id <= 0 or (e.is_pick and e.team not in (0, 1)) for e in events):
         raise Rejection("invalid_draft_event")
     # Source gaps imply missing events. Interleaved bans may occupy pick-order gaps.
     if {e.order for e in events} != set(range(len(events))):
@@ -48,16 +47,19 @@ def reconstruct(match: Match) -> Draft:
             raise Rejection("extra_after_final_pick")
         phase = 1 if seen < 4 else 2 if seen < 8 else 3
         is_final = event.hero_id in final_teams
-        recovered.append(replace(event, successful=is_final, phase=phase,
-                                 phase_source="final_pick_counts"))
+        recovered.append(
+            replace(event, successful=is_final, phase=phase, phase_source="final_pick_counts")
+        )
         seen += int(is_final)
-    return Draft(tuple(recovered), tuple(e for e in recovered if e.successful),
-                 match.event_order_kind)
+    return Draft(
+        tuple(recovered), tuple(e for e in recovered if e.successful), match.event_order_kind
+    )
 
 
 def visible_picks(draft: Draft, candidate: DraftEvent) -> tuple[tuple[int, ...], tuple[int, ...]]:
-    allies = tuple(e.hero_id for e in draft.picks
-                   if e.team == candidate.team and e.order < candidate.order)
+    allies = tuple(
+        e.hero_id for e in draft.picks if e.team == candidate.team and e.order < candidate.order
+    )
     team_pick = len(allies) + 1
     enemy_count = 0 if team_pick <= 2 else 2 if team_pick <= 4 else 4
     enemies = tuple(e.hero_id for e in draft.picks if e.team != candidate.team)[:enemy_count]
