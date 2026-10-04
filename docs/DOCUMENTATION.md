@@ -1,112 +1,54 @@
-# 1. What the project does
+# LastPick documentation
 
-This project is a Dota 2 carry recommendation system. The user selects four allies and four enemies, and the model ranks possible position-1 (pos1) heroes for that draft. It returns the top five available carries with model scores, excluding picked and banned heroes. The neural network is trained from historical OpenDota matches.
+LastPick recommends Dota 2 position-1 heroes for a visible 4v4 draft. The web demo
+scores available carries with the preserved ISP neural network and excludes picks
+and bans. Foundation v2 supplies canonical data and leakage-safe evaluation APIs
+for the next generation of models.
 
-# 2. Main project flow
+## Start here
 
-```text
-OpenDota raw matches
-  data/raw/opendota/matches/*.json
-    ->
-Draft parsing and carry identification
-  scripts/parse_drafts.py, scripts/build_dataset.py
-    ->
-Processed datasets, match statistics and quality checks
-  scripts/build_full_draft_dataset.py
-  scripts/build_match_data.py, scripts/build_training_quality.py
-    ->
-Historical feature generation from earlier training matches
-  scripts/carry_historical_features.py
-    ->
-Model training with hero details from data/constants/heroes.csv
-  scripts/carry_model.py, scripts/train_carry_recommender.py
-    ->
-models/final_carry_recommender.pt
-    ->
-Recommendation functions and web app
-  scripts/recommend_carry.py, web/app.py
-    ->
-Top carry recommendations
-```
+- [Foundation v2 architecture and operations](FOUNDATION_V2.md): package, schemas,
+  source ingestion, datasets, roles, historical statistics, commands and limitations.
+- [ISP v1 baseline](ISP_V1.md): original experiment and saved reference results.
+- [Project instructions](../AGENTS.md): canonical knowledge for future Codex sessions.
+- [Web demo](../web/README.md): Flask and static export instructions.
 
-# 3. Important files
+## Setup and common commands
 
-**Data processing**
-
-- `scripts/parse_drafts.py` reconstructs final picks from saved matches.
-- `scripts/build_dataset.py` identifies the carry and records the picks visible at their decision.
-- `scripts/build_full_draft_dataset.py` creates complete five-versus-five draft rows.
-- `scripts/build_match_data.py` extracts match statistics, player statistics and events.
-- `scripts/build_training_quality.py` marks examples with missing data or other quality problems.
-- `scripts/build_hero_metadata.py` creates the hero details used by the model.
-
-**Model / training**
-
-- `scripts/carry_historical_features.py` builds hero, ally-synergy and enemy-matchup inputs from earlier training matches.
-- `scripts/carry_model.py` defines the neural network and its draft inputs.
-- `scripts/train_carry_recommender.py` trains one network and saves its best validation checkpoint.
-- `scripts/train_baseline.py` trains logistic regression as a simple reference.
-
-**Recommendation**
-
-- `scripts/recommend_carry.py` loads the saved NN and scores available carries.
-- `scripts/check_carry_rankings.py` checks how rankings react to different drafts.
-
-**Web app**
-
-- `web/app.py` serves the page and handles recommendation requests.
-- `web/templates/index.html` defines the page layout.
-- `web/static/app.js` handles hero selection and displays recommendations.
-- `web/static/style.css` controls the page appearance.
-
-# 4. Important datasets
-
-Unless stated otherwise, these CSVs are in `data/processed/`.
-
-- `drafts.csv`: one row is a reconstructed match draft, used to build complete lineups.
-- `training_examples.csv`: one row is a carry pick with its visible draft and result, used to train the recommender.
-- `full_draft_examples.csv`: one row is a match's ten final heroes and result, used for historical hero relationships.
-- `match_features.csv`: one row is a match's statistics, used for quality checks and historical duration groups.
-- `player_match_features.csv`: one row is a player in a match, used for quality checks and historical farming averages.
-- `training_quality.csv`: one row describes a carry example's quality, used to exclude unsuitable examples.
-- `data/constants/heroes.csv`: one row describes a hero's name, attribute, attack type and roles, used for fixed model inputs.
-
-# 5. Model
-
-Logistic Regression -> baseline
-
-Neural Network -> contextual recommender
-
-Historical Feature NN -> final model
-
-The final NN combines visible hero picks, learned hero interactions, fixed hero details and all 20 historical features. Those historical features describe win rates, farming, ally synergy, enemy matchups and their sample support; they use training history rather than the predicted match's future statistics.
-
-- Final model: `models/final_carry_recommender.pt`
-- Trainable parameters: **13,313**
-- Test accuracy: **0.5345**
-- Test AUC: **0.5458**
-
-Earlier comparisons showed slightly better classification metrics for LR, but its candidate ranking does not react to the draft, while the NN's ranking does. The current trainer trains only the final NN; results are saved in `models/final_carry_training_results.json`.
-
-# 6. Running the project
-
-From the project root, start the web app with the current local setup:
+From the repository root, Python 3.11 or newer:
 
 ```sh
-PYTHONPATH=/private/tmp/isp-web-deps arch -arm64 .venv/bin/python -m web.app
+python -m pip install -e '.[dev,web]'
+python -m web.app
+python -m pytest -q
+python -m ruff check .
+python -m ruff format --check .
+python -m mypy
 ```
 
-Open `http://127.0.0.1:5000`. The extra Python path points to the local Flask installation.
+The core normalization/role/dataset commands need no ML dependencies; install
+`-e .` if only building data. Existing Apple Silicon environments may require
+`arch -arm64` before Python.
 
-```text
-Select 4 allies -> select 4 enemies -> press Recommend
-    -> receive ranked carry suggestions
+```sh
+python -m lastpick --config config/default.toml ingest --max-pages 1
+python -m lastpick normalize
+python -m lastpick dataset
 ```
 
-# 7. Current limitations / future work
+Ingestion uses OPENDOTA_API_KEY from the shell environment if supplied. Generated
+raw/normalized/processed data stays gitignored. Dataset builds preserve their
+predecessors; the original ISP CSVs and final checkpoint are not regenerated by
+these v2 commands.
 
-- Improve the model and collect more varied data; current prediction performance is modest.
-- Add a preferred hero pool for the user.
-- Add meta and popularity adjustments.
-- Explain recommendations in simple terms.
-- Add a database later if the project needs it.
+## Model and reproduction
+
+`models/final_carry_recommender.pt` remains the shipped ISP MLP (13,313 trained
+parameters, 44 candidates, 20 historical inputs). Its saved test accuracy is
+0.5345 and AUC 0.5458; these are reference values, not Foundation v2 improvements.
+The model learns chosen-carry win/loss, not counterfactual rankings of unpicked heroes.
+
+Use the `isp-v1` tag with the original local data to reproduce the exact ISP
+implementation. Current training fixes minibatch quality weighting and historical
+completion-time cutoffs and writes separate Foundation artifacts. A full v2 4v4
+baseline experiment is intentionally the next milestone.

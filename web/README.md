@@ -3,7 +3,7 @@
 From the repository root, use a Python environment with the existing PyTorch dependencies:
 
 ```sh
-python -m pip install -r web/requirements.txt
+python -m pip install -e '.[dev,web]'
 python -m web.app
 ```
 
@@ -42,7 +42,7 @@ picks. Recommendations exclude all picks and bans using the checkpoint pool.
 Run integration tests against the actual final checkpoint and cached portraits:
 
 ```sh
-python -m unittest discover -s tests -p 'test_web_demo.py' -v
+python -m pytest tests/test_web.py tests/test_recommender.py -q
 ```
 
 Manual UI check: add a hero, try adding it again, fill a team, switch teams, remove a
@@ -55,23 +55,22 @@ these Python commands with `arch -arm64`.
 
 ## Hosted website
 
-Live site: https://isp-carry-recommender.dmytriivi.chatgpt.site
-Anyone with the link can open it.
+The committed standalone ISP snapshot is in `site/public/`. It uses the same UI
+with checkpoint weights and aggregate historical statistics exported for browser
+inference, and needs no running Python server. Those exported values are public.
 
-The ChatGPT Sites deployment uses the same UI with the trained checkpoint exported
-for browser inference. It needs no running laptop or Python server. The exported
-model weights and aggregate historical statistics are downloadable by visitors.
-
-Rebuild the standalone website after updating the model or UI:
+Rebuild a standalone copy from the preserved checkpoint and current UI:
 
 ```sh
-python -m scripts.export_web_site
-python -m unittest discover -s tests -p 'test_static_site.py' -v
+python -m scripts.export_web_site --output dist
 python -m http.server 8000 --directory dist
 ```
 
 Open http://localhost:8000, choose Example draft, then RECOMMEND CARRY.
-The comparison test checks 102 drafts against the real PyTorch checkpoint,
-including bans and no remaining candidates. Rankings must match and scores must
-agree within 0.000001. `.openai/hosting.json` links this project to ChatGPT Sites;
-rebuilding locally does not publish changes automatically.
+Rebuilding locally does not publish a site. Backend tests use the tracked checkpoint;
+the repository does not currently include a browser/PyTorch numerical parity test.
+The Foundation smoke check exports the site and verifies its artifact structure.
+
+See [Foundation v2](../docs/FOUNDATION_V2.md) for package/data commands. This UI
+continues to serve `final_carry_recommender.pt`; Foundation training writes separate
+artifacts and is not automatically deployed.
