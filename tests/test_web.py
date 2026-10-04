@@ -2,7 +2,6 @@ from unittest.mock import patch
 
 from web.app import create_app
 
-
 # creates the app and loads its model once
 app = create_app()
 client = app.test_client()
@@ -52,6 +51,8 @@ def test_bans_are_respected():
 # checks that requests reuse the loaded model
 def test_requests_do_not_reload_or_train():
     model = app.extensions["recommender"]["model"]
-    with patch("web.app.load_model", side_effect=AssertionError("reloaded")), \
-            patch.object(model, "train", side_effect=AssertionError("trained")):
+    with (
+        patch("web.app.load_model", side_effect=AssertionError("reloaded")),
+        patch.object(model, "train", side_effect=AssertionError("trained")),
+    ):
         assert client.post("/api/recommend", json=draft()).status_code == 200

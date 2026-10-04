@@ -5,8 +5,7 @@ from scripts.parse_drafts import validate_match
 
 
 # makes a small match with a known carry and pick order
-def make_match(candidate_order, first_team=0, candidate_hero=25,
-               mid_hero=None, both_teams=False):
+def make_match(candidate_order, first_team=0, candidate_hero=25, mid_hero=None, both_teams=False):
     heroes = [2, 3, 5, 7, 9, 13, 14, 15, 16, 17]
     teams = [(first_team + i) % 2 for i in range(10)]
     team = teams[candidate_order]
@@ -42,17 +41,23 @@ def make_match(candidate_order, first_team=0, candidate_hero=25,
         "radiant_win": True,
         "players": players,
         "picks_bans": [
-            {"is_pick": True, "order": i, "team": teams[i], "hero_id": heroes[i]}
-            for i in range(10)
+            {"is_pick": True, "order": i, "team": teams[i], "hero_id": heroes[i]} for i in range(10)
         ],
     }
     return match, teams, heroes
 
+
 # inserts a pick attempt that did not become a final hero
 def add_extra_attempt(match, order, hero_id, team):
-    match["picks_bans"].insert(order, {
-        "is_pick": True, "order": order, "team": team, "hero_id": hero_id,
-    })
+    match["picks_bans"].insert(
+        order,
+        {
+            "is_pick": True,
+            "order": order,
+            "team": team,
+            "hero_id": hero_id,
+        },
+    )
     for i, pick in enumerate(match["picks_bans"]):
         pick["order"] = i
 

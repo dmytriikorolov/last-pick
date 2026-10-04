@@ -15,6 +15,7 @@ min_ranked_players = 5
 require_rank = true
 min_duration = 900
 patches = []
+min_patch = 59
 
 [roles]
 method = "farm-v2"

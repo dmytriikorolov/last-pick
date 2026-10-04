@@ -22,7 +22,7 @@ class Filters:
     min_rank: float | None = 70
     min_ranked_players: int | None = 5
     patches: tuple[int, ...] = ()
-    min_patch: int | None = None
+    min_patch: int | None = 59
     min_duration: int = 900
     require_rank: bool = True
 

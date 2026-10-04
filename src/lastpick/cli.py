@@ -33,7 +33,7 @@ def main(argv: list[str] | None = None) -> None:
     history.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     config_path = args.config or args.root / "config/default.toml"
-    config = load_config(config_path)
+    config = load_config(config_path if args.config is not None or config_path.exists() else None)
     if args.command in {"ingest", "normalize"} and config.source != "opendota":
         raise ValueError("CLI currently provides only the OpenDota source/adapter")
     if args.command == "ingest":

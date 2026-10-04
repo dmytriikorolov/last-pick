@@ -1,24 +1,45 @@
 import numpy as np
 import torch
 
-from scripts.carry_historical_features import (add_match, empty_stats, feature_vector,
-                                              pair_values, training_features)
+from scripts.carry_historical_features import (
+    add_match,
+    empty_stats,
+    feature_vector,
+    pair_values,
+    training_features,
+)
 from scripts.carry_model import static_hero_features
 from scripts.hero_lookup import hero_id_to_name, hero_name_to_id, names_by_id
 
 
 # makes one small carry decision for feature tests
 def decision(time):
-    return {"match_id": str(time), "start_time": str(time), "candidate_hero_id": "1",
-            "ally_1": "2", "ally_2": "3", "ally_3": "", "ally_4": "",
-            "enemy_1": "6", "enemy_2": "7", "enemy_3": "", "enemy_4": ""}
+    return {
+        "match_id": str(time),
+        "start_time": str(time),
+        "candidate_hero_id": "1",
+        "ally_1": "2",
+        "ally_2": "3",
+        "ally_3": "",
+        "ally_4": "",
+        "enemy_1": "6",
+        "enemy_2": "7",
+        "enemy_3": "",
+        "enemy_4": "",
+    }
 
 
 # makes one earlier match with known result and farm values
 def historical_match(time, win=1):
-    return {"match_id": str(time), "start_time": time, "radiant": [1, 2, 3, 4, 5],
-            "dire": [6, 7, 8, 9, 10], "radiant_win": win, "duration": 1500,
-            "farm": {1: [500, 4000, 60]}}
+    return {
+        "match_id": str(time),
+        "start_time": time,
+        "radiant": [1, 2, 3, 4, 5],
+        "dire": [6, 7, 8, 9, 10],
+        "radiant_win": win,
+        "duration": 1500,
+        "farm": {1: [500, 4000, 60]},
+    }
 
 
 # checks hero names and the size of model inputs

@@ -4,7 +4,6 @@ from scripts.carry_historical_features import FEATURE_FIELDS
 from scripts.hero_lookup import hero_id_to_name, names_by_id
 from scripts.recommend_carry import DEFAULT_MODEL, load_model, rank_candidates, score_candidates
 
-
 # loads the final model once for these tests
 model, hero_ids, pool = load_model(DEFAULT_MODEL)
 allies = [2, 5, 25, 86]

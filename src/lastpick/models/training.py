@@ -23,7 +23,8 @@ from lastpick.legacy.logistic import load_rows, split_rows
 from lastpick.models.carry import CarryModel, encode_draft
 
 ROOT = project_root()
-CONFIG = load_config(ROOT / "config/default.toml")
+CONFIG_PATH = ROOT / "config/default.toml"
+CONFIG = load_config(CONFIG_PATH if CONFIG_PATH.exists() else None)
 TRAINING = CONFIG.training
 DATA = ROOT / "data/processed"
 MODELS = ROOT / "models"

@@ -59,8 +59,9 @@ class Collector:
             raise ValueError("state belongs to another source")
         if type(self.state.requests) is not int or self.state.requests < 0:
             raise ValueError("invalid persisted request count")
-        if any(type(e.get("match_id")) is not int or e["match_id"] <= 0
-               for e in self.state.pending):
+        if any(
+            type(e.get("match_id")) is not int or e["match_id"] <= 0 for e in self.state.pending
+        ):
             raise ValueError("invalid persisted pending entries")
         fingerprint = json.dumps(
             {
@@ -100,7 +101,9 @@ class Collector:
             try:
                 saved_metadata = json.loads(metadata_path.read_text())
                 previous = saved_metadata["discovery"]
-                if saved_metadata.get("source", self.source.name) != self.source.name or not isinstance(previous, dict):
+                if saved_metadata.get(
+                    "source", self.source.name
+                ) != self.source.name or not isinstance(previous, dict):
                     raise ValueError("invalid source metadata")
             except (OSError, ValueError, TypeError, KeyError):
                 raise InvalidPayload("invalid_existing_metadata") from None
@@ -172,7 +175,9 @@ class Collector:
                         payload, downloaded = self.cache_or_fetch(entry)
                         counts["downloaded" if downloaded else "cache_reused"] += 1
                         total += int(downloaded)
-                        metadata = json.loads((self.directory / "metadata" / f"{match_id}.json").read_text())
+                        metadata = json.loads(
+                            (self.directory / "metadata" / f"{match_id}.json").read_text()
+                        )
                         match = self.adapter.normalize(payload, metadata["discovery"])
                         validate_integrity(match)
                         validate_filters(match, self.config.filters)
