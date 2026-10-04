@@ -10,3 +10,9 @@ data/processed/
 data/archive/
 .env
 dist/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+models/foundation_*.pt
+models/foundation_*_results.json

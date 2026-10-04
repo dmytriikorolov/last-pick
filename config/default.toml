@@ -1,0 +1,65 @@
+source = "opendota"
+seed = 42
+
+[paths]
+raw = "data/raw/opendota/matches"
+normalized = "data/interim/v2/matches"
+output = "data/processed/v2"
+ingestion = "data/raw/opendota/foundation_state"
+
+[filters]
+game_modes = [22]
+lobby_types = [7]
+min_rank = 70
+min_ranked_players = 5
+require_rank = true
+min_duration = 900
+patches = []
+min_patch = 59
+
+[roles]
+method = "farm-v2"
+timestamps = [5, 10, 15]
+legacy_lh_gap = 15
+legacy_gold_gap = 400
+min_lh_gap = 15
+min_gold_gap = 400
+min_confidence = 0.65
+min_score_gap = 0.15
+position_est_weight = 0.15
+farm_weight = 0.85
+separation_scale = 2
+confidence_base = 0.5
+confidence_farm_weight = 0.3
+confidence_per_timestamp = 0.05
+max_confidence = 0.95
+
+[dataset]
+picks = [3, 4, 5]
+exclude_candidate_phase_attempts = true
+hero_universe = []
+version = "foundation-v2"
+
+[ingestion]
+discovery = "public"
+request_budget = 3000
+daily_budget = true
+target_matches = 150000
+delay_seconds = 1.2
+timeout_seconds = 30
+retries = 3
+retry_seconds = 5
+
+[training]
+min_candidate_examples = 100
+max_epochs = 10
+patience = 3
+batch_size = 1024
+learning_rate = 0.003
+model_path = "models/foundation_carry_recommender.pt"
+results_path = "models/foundation_carry_training_results.json"
+
+[features]
+prior_games = 100
+early_seconds = 1800
+late_seconds = 2700

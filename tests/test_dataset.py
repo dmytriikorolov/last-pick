@@ -1,5 +1,6 @@
-from scripts.build_dataset import build_match_examples
 from test_draft_parsing import make_match
+
+from scripts.build_dataset import build_match_examples
 
 
 # checks the carry choice and win label for both teams

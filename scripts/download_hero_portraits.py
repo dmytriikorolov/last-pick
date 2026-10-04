@@ -1,30 +1,11 @@
-# very easy file just to download the hero icons
+"""Compatibility entry point; reusable code lives in lastpick.legacy.portraits."""
 
+if __package__:
+    from . import _bootstrap as _bootstrap
+else:
+    import _bootstrap as _bootstrap
 
-import json
-from pathlib import Path
-from urllib.request import urlopen
-
-ROOT = Path(__file__).resolve().parent.parent
-DESTINATION = ROOT / "web/static/heroes"
-
-
-def download(hero):
-    target = DESTINATION / f'{hero["id"]}.png'
-    if target.exists():
-        return
-    url = "https://cdn.cloudflare.steamstatic.com" + hero["img"]
-    with urlopen(url, timeout=30) as response:
-        target.write_bytes(response.read())
-
-
-def main():
-    heroes = json.loads((ROOT / "data/constants/dotaconstants_heroes.json").read_text())
-    DESTINATION.mkdir(parents=True, exist_ok=True)
-    for hero in heroes.values():
-        download(hero)
-    print(f"Portraits saved in {DESTINATION}")
-
+from lastpick.legacy.portraits import *
 
 if __name__ == "__main__":
     main()

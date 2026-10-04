@@ -5,7 +5,8 @@ from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
 
-from scripts.recommend_carry import DEFAULT_MODEL, load_model, rank_candidates
+from lastpick.recommender.carry import DEFAULT_MODEL, load_model, rank_candidates
+from scripts import _bootstrap as _bootstrap
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -15,11 +16,18 @@ def create_app():
     model, hero_ids, pool = load_model(DEFAULT_MODEL)
     known_ids = set(hero_ids)
     snapshot = json.loads((ROOT / "data/constants/dotaconstants_heroes.json").read_text())
-    heroes = sorted([
-        {"id": row["id"], "name": row["localized_name"],
-         "attribute": row["primary_attr"], "image": f'/static/heroes/{row["id"]}.png'}
-        for row in snapshot.values()
-    ], key=lambda hero: hero["name"])
+    heroes = sorted(
+        [
+            {
+                "id": row["id"],
+                "name": row["localized_name"],
+                "attribute": row["primary_attr"],
+                "image": f"/static/heroes/{row['id']}.png",
+            }
+            for row in snapshot.values()
+        ],
+        key=lambda hero: hero["name"],
+    )
     names = {hero["id"]: hero["name"] for hero in heroes}
     app.extensions["recommender"] = {"model": model, "hero_ids": hero_ids, "pool": pool}
 
@@ -49,13 +57,21 @@ def create_app():
             return jsonify(error="The same hero cannot appear on both teams."), 400
         if set(visible) & set(groups["banned"]):
             return jsonify(error="A drafted hero cannot also be banned."), 400
-        available = [hero for hero in pool if hero not in set(groups["banned"])]
-        ranking = rank_candidates(model, hero_ids, available,
-                                  groups["allies"], groups["enemies"], top_n=5)
-        return jsonify(recommendations=[
-            {"hero_id": hero, "hero_name": names[hero], "model_score": score}
-            for hero, score in ranking
-        ])
+        ranking = rank_candidates(
+            model,
+            hero_ids,
+            pool,
+            groups["allies"],
+            groups["enemies"],
+            top_n=5,
+            banned=groups["banned"],
+        )
+        return jsonify(
+            recommendations=[
+                {"hero_id": hero, "hero_name": names[hero], "model_score": score}
+                for hero, score in ranking
+            ]
+        )
 
     return app
 
