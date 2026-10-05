@@ -61,6 +61,7 @@ def main(argv: list[str] | None = None) -> None:
     report_command.add_argument("--run", type=Path, required=True)
     report_command.add_argument("--holdout", type=Path)
     report_command.add_argument("--reevaluation", type=Path)
+    report_command.add_argument("--ablations", type=Path)
     report_command.add_argument(
         "--audit", type=Path, default=Path("reports/modeling-v2/generated/audit.json")
     )
@@ -164,7 +165,13 @@ def main(argv: list[str] | None = None) -> None:
         from lastpick.experiments.reporting import export_report
 
         export_report(
-            args.run, args.audit, args.output, args.document, args.holdout, args.reevaluation
+            args.run,
+            args.audit,
+            args.output,
+            args.document,
+            args.holdout,
+            args.reevaluation,
+            args.ablations,
         )
         print(f"Report: {args.document}")
 

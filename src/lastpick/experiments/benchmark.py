@@ -13,7 +13,13 @@ from sklearn.linear_model import LogisticRegression
 from lastpick.data.io import atomic_json
 from lastpick.evaluation.splits import temporal_split
 from lastpick.experiments.audit import utc
-from lastpick.experiments.data import candidate_pool, dataset_identity, digest, load_decisions
+from lastpick.experiments.data import (
+    candidate_pool,
+    dataset_identity,
+    digest,
+    load_decisions,
+    verify_canonical,
+)
 from lastpick.experiments.diagnostics import drift_report, ranking_report, score_drafts, sensitivity
 from lastpick.experiments.features import HistoricalFeatures, static_features
 from lastpick.experiments.metrics import (
@@ -27,6 +33,7 @@ from lastpick.experiments.models import NeuralModel, PriorModel, TabularModel
 
 BASE = ("candidate", "draft")
 RICH = BASE + ("static", "profile", "synergy", "matchup", "farming_stage", "support", "context")
+EXPLORATORY_MODELS = {"catboost_static", "catboost_profile", "catboost_pairs"}
 SUITE = {
     "global": ("prior", ("candidate",)),
     "hero": ("prior", ("candidate",)),
@@ -130,12 +137,13 @@ def benchmark(
     max_epochs: int = 20,
     holdout_start: int | None = None,
 ) -> Path:
-    selected = models or list(SUITE)
+    selected = models or [name for name in SUITE if name not in EXPLORATORY_MODELS]
     if unknown := set(selected) - set(SUITE):
         raise ValueError(f"unknown models: {sorted(unknown)}")
     if output.exists():
         raise FileExistsError(f"use a fresh run directory: {output}")
     rows = load_decisions(build)
+    canonical_verification = verify_canonical(build, canonical)
     if patch_holdout and holdout_start is not None:
         raise ValueError("choose patch holdout or a time holdout")
     if patch_holdout or holdout_start is not None:
@@ -182,6 +190,7 @@ def benchmark(
         "git_dirty": bool(status),
         "source_sha256": {str(p.relative_to(root)): digest(p) for p in source_files},
         "dataset": dataset_identity(build),
+        "canonical_verification": canonical_verification,
         "seed": seed,
         "models": selected,
         "candidate_minimum_training_rows": minimum,

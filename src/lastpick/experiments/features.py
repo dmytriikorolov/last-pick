@@ -60,6 +60,7 @@ class HistoricalFeatures:
             matches.append(replace(match, players=players))
         history = AsOfHistory(matches, set(training_ids))
         self.observed = {}
+        self.observed_contexts = {}
         self.availability = []
         for d in decisions:
             as_of = min(d.start_time, cutoff)
@@ -67,6 +68,14 @@ class HistoricalFeatures:
             self.observed[(d.match_id, d.side)] = self.values(
                 history.stats, d.chosen_hero, d.visible_allies, d.visible_enemies
             )
+            key = (
+                d.match_id,
+                d.start_time,
+                d.chosen_hero,
+                tuple(sorted(d.visible_allies)),
+                tuple(sorted(d.visible_enemies)),
+            )
+            self.observed_contexts[key] = self.observed[(d.match_id, d.side)]
             latest = history.matches[history.position - 1][0] if history.position else None
             if latest is not None and latest >= as_of:
                 raise ValueError("historical completion leakage")
@@ -92,11 +101,26 @@ class HistoricalFeatures:
         return values
 
     def for_decision(self, d, candidate=None):
-        if candidate is None:
-            return self.observed[(d.match_id, d.side)]
-        if d.start_time < self.cutoff:
+        if d.start_time >= self.cutoff:
+            return self.values(
+                self.stats,
+                d.chosen_hero if candidate is None else candidate,
+                d.visible_allies,
+                d.visible_enemies,
+            )
+        if candidate is not None and candidate != d.chosen_hero:
             raise ValueError("alternate candidate scoring requires frozen evaluation rows")
-        return self.values(self.stats, candidate, d.visible_allies, d.visible_enemies)
+        # side is metadata and cannot choose another candidate's cached historical inputs
+        key = (
+            d.match_id,
+            d.start_time,
+            d.chosen_hero,
+            tuple(sorted(d.visible_allies)),
+            tuple(sorted(d.visible_enemies)),
+        )
+        if key not in self.observed_contexts:
+            raise ValueError("training history requires an original observed draft and timestamp")
+        return self.observed_contexts[key]
 
 
 def static_features(path):

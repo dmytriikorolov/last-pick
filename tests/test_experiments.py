@@ -21,6 +21,7 @@ from lastpick.experiments.data import (
     draft_input,
     evaluation_pool,
     load_decisions,
+    verify_canonical,
 )
 from lastpick.experiments.features import FeatureEncoder, HistoricalFeatures
 from lastpick.experiments.metrics import (
@@ -192,6 +193,9 @@ def test_models_reproducible_and_order_side_invariant(tmp_path):
     models = [
         PriorModel("hero").fit(train),
         TabularModel("lr", ("candidate", "draft")).fit(train, valid, history),
+        TabularModel("lr", ("candidate", "draft", "profile", "synergy", "matchup", "support")).fit(
+            train, valid, history
+        ),
         NeuralModel(("candidate", "draft"), max_epochs=2).fit(train, valid, history),
     ]
     repeat = TabularModel("lr", ("candidate", "draft")).fit(train, valid, history)
@@ -207,12 +211,28 @@ def test_models_reproducible_and_order_side_invariant(tmp_path):
             model.predict([replace(d, side=1 - d.side) for d in test], history, candidates),
             atol=1e-7,
         )
+        for partition in (train, test):
+            base = model.predict(partition, history)
+            np.testing.assert_allclose(
+                base,
+                model.predict([replace(d, side=1 - d.side) for d in partition], history),
+                atol=1e-7,
+            )
 
 
 def test_dataset_manifest_digest_integrity_and_audit(tmp_path):
     canonical_dir, build = corpus(tmp_path)
     identity = dataset_identity(build)
     assert len(identity["decisions_sha256"]) == 64
+    assert (
+        verify_canonical(build, canonical_dir)["input_digest"] == identity["canonical_input_digest"]
+    )
+    source = canonical_dir / "100.json"
+    content = source.read_bytes()
+    source.write_bytes(content + b" ")
+    with pytest.raises(Rejection, match="canonical_build_digest"):
+        verify_canonical(build, canonical_dir)
+    source.write_bytes(content)
     audit = audit_dataset(build, canonical_dir, tmp_path / "audit")
     assert audit["last_pick_decisions"] == 60
     assert audit["accepted_match_contribution"] == {"2": 30}

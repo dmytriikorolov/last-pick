@@ -22,6 +22,7 @@ def export_report(
     document: Path,
     holdout: Path | None = None,
     reevaluation: Path | None = None,
+    ablation_run: Path | None = None,
 ) -> None:
     results = read_json(run / "metrics.json")
     config = read_json(run / "config.json")
@@ -49,9 +50,32 @@ def export_report(
         "drift": drift,
         "source_run_artifacts_sha256": digest(run / "artifacts.json"),
     }
+    if ablation_run is not None:
+        ablation_config = read_json(ablation_run / "config.json")
+        if any(
+            ablation_config[key] != config[key]
+            for key in ("dataset", "split", "seed", "evaluation_candidate_pool")
+        ):
+            raise ValueError("tree ablation run does not share the primary data contract")
+        extra = read_json(ablation_run / "metrics.json")
+        if set(extra) & set(results):
+            raise ValueError("duplicate model names in tree ablation run")
+        summary["tree_ablations"] = {
+            "config": ablation_config,
+            "results": extra,
+            "sigmoid_calibration": read_json(ablation_run / "sigmoid_calibration.json"),
+            "source_run_artifacts_sha256": digest(ablation_run / "artifacts.json"),
+        }
+        results = {**results, **extra}
+        with (
+            (output / "comparison.csv").open("a") as destination,
+            (ablation_run / "comparison.csv").open() as source,
+        ):
+            next(source)
+            shutil.copyfileobj(source, destination)
     if reevaluation is not None:
         repeated = read_json(reevaluation)
-        for name, value in results.items():
+        for name, value in summary["primary_results"].items():
             if (
                 value["status"] == "complete"
                 and repeated[name]["metrics"] != value["partitions"]["test"]["metrics"]
@@ -108,11 +132,21 @@ def export_report(
         "lr_farming",
         "lr_full",
     ]
+    if ablation_run is not None:
+        sequence += [
+            "catboost_raw",
+            "catboost_static",
+            "catboost_profile",
+            "catboost_pairs",
+            "catboost_full",
+        ]
     ablations = []
     previous: dict[str, Any] | None = None
     for name in sequence:
         if name not in results:
             continue
+        if name == "catboost_raw":
+            previous = None
         validation = results[name]["partitions"]["validation"]["metrics"]
         test = results[name]["partitions"]["test"]["metrics"]
         ablations.append(
@@ -132,6 +166,18 @@ def export_report(
         writer.writeheader()
         writer.writerows(ablations)
     complete = {name: v for name, v in results.items() if v["status"] == "complete"}
+    expanded_validation_best = min(
+        complete, key=lambda name: complete[name]["partitions"]["validation"]["metrics"]["log_loss"]
+    )
+    most_sensitive = max(
+        complete,
+        key=lambda name: (
+            complete[name]["partitions"]["test"]["sensitivity"]["ally"]["top1_change_common_pool"]
+            + complete[name]["partitions"]["test"]["sensitivity"]["enemy"][
+                "top1_change_common_pool"
+            ]
+        ),
+    )
     names_path = document.parent.parent / "data/constants/heroes.csv"
     names: dict[str, str] = {}
     if names_path.exists():
@@ -139,6 +185,17 @@ def export_report(
             names = {str(r["hero_id"]): r["hero_name"] for r in csv.DictReader(stream)}
     winner = winners["validation_selected"]
     partition = config["split"]["partitions"]
+    verification_lines: list[str] = []
+    if (output / "checks.json").exists():
+        checks = read_json(output / "checks.json")
+        research = checks["pytest_research"]
+        normal = checks["pytest_without_research"]
+        verification_lines = [
+            f"local verification passed {research['passed']} tests with {research['warnings']} warnings in {research['seconds']} seconds, or {normal['passed']} tests with {normal['skipped']} optional skips and {normal['warnings']} warning in {normal['seconds']} seconds without research packages",
+            "",
+            f"the Ruff lint check passed, all {checks['ruff_format']['files']} files were formatted and strict mypy passed for {checks['mypy']['files']} source files; check output is summarized in reports/modeling-v2/checks.json and remote CI has not run",
+            "",
+        ]
     lines = [
         "# modeling & evaluation v2",
         "",
@@ -189,6 +246,13 @@ def export_report(
         "| partition | rows | matches | first UTC start | last UTC start |",
         "| --- | ---: | ---: | --- | --- |",
     ]
+    if ablation_run is not None:
+        lines[6:6] = [
+            f"three exploratory CatBoost ablations share the same frozen primary split; `{expanded_validation_best}` has the lowest expanded validation loss, while the original validation selection remains `{winner}`",
+            "",
+            "those extra ablations reused an already inspected test set and are not an independent confirmatory benchmark",
+            "",
+        ]
     for key, value in partition.items():
         lines.append(
             f"| {key} | {value['rows']} | {value['matches']} | {value['start']} | {value['end']} |"
@@ -209,7 +273,7 @@ def export_report(
         "",
         "the AsOfHistory engine only accumulates training-match IDs whose start plus duration is strictly earlier than the decision time; validation/test history freezes at the validation cutoff, excluding unfinished training matches and all evaluation outcomes",
         "",
-        "history comes from training matches that contribute accepted 4v4 decisions, rather than every cached match; all ten players in those completed matches contribute historical hero and pair counters",
+        "history comes from training matches that contribute accepted 4v4 decisions, rather than every cached match; all ten players in those completed matches contribute historical hero and pair counters across positions",
         "",
         "feature groups are profile win rate, ally synergy deltas, enemy matchup deltas, farming/game-stage summaries and separate support/reliability counts; missing numeric means use neutral defaults with explicit independent supports",
         "",
@@ -335,7 +399,7 @@ def export_report(
         "",
         "additive LR can classify draft strength while leaving candidate order unchanged, because the same draft term shifts every candidate's logit; its good AUC does not imply a useful context-sensitive ranking",
         "",
-        "historical trees vary candidate-specific scores much more than their raw variants; the MLP is most sensitive by summed ally/enemy common-pool changes, but its probability quality is weaker",
+        f"the full tree variants vary candidate-specific scores much more than raw trees; `{most_sensitive}` is most sensitive by summed ally/enemy common-pool changes, which does not establish recommendation superiority",
         "",
         "winning and losing observed picks remain observational and cannot validate alternatives",
         "",
@@ -374,10 +438,21 @@ def export_report(
         "",
         "the profile step adds support/reliability inputs together, so it does not isolate profile from support; subsequent synergy/matchup steps isolate their deltas",
         "",
-        "context improves LR validation loss and test AUC; richer history modestly helps tree validation and substantially improves ranking sensitivity, while raw CatBoost has essentially the same test loss as the full tree models",
+        "context improves LR validation loss and test AUC; the full static/history bundle modestly helps tree validation and substantially improves ranking sensitivity, while raw CatBoost has essentially the same test loss as the full tree models",
         "",
         "the full MLP improves over draft-only MLP but does not beat the strongest conventional models",
         "",
+    ]
+    if ablation_run is not None:
+        lines += [
+            "the focused CatBoost sequence adds static features, then profile/support, then synergy/matchup deltas and finally farming/game-stage summaries; profile/support has the best validation loss, while pair deltas hurt that loss despite increasing ranking diversity",
+            "",
+            "static CatBoost improves observed-pick agreement without improving test probability loss; these two objectives differ",
+            "",
+            "the extra CatBoost variants were not separately retrained in the June-to-August holdout, so their temporal robustness remains unestablished",
+            "",
+        ]
+    lines += [
         "## patch, rank, side and time",
         "",
         "one source patch means cross-patch stability cannot be measured; subgroup metrics retain low-support counts with unreliable flags rather than hiding them",
@@ -512,9 +587,10 @@ def export_report(
         "python -m lastpick audit-dataset",
         "python -m lastpick benchmark --seed 42 --bootstrap 200 --output experiments/modeling-v2/new-primary",
         "python -m lastpick benchmark --models global hero hero_side lr_context lr_full catboost_full lightgbm_full nn_full --holdout-start 1785542400 --seed 42 --output experiments/modeling-v2/new-holdout",
+        "python -m lastpick benchmark --models catboost_static catboost_profile catboost_pairs --seed 42 --output experiments/modeling-v2/new-tree-ablations",
         "python -m lastpick evaluate --run experiments/modeling-v2/new-primary --output experiments/modeling-v2/reloaded.json",
         "python -m lastpick role-review-sample --size 400",
-        "python -m lastpick benchmark-report --run experiments/modeling-v2/new-primary --holdout experiments/modeling-v2/new-holdout --reevaluation experiments/modeling-v2/reloaded.json --audit reports/modeling-v2/generated/audit.json --output reports/modeling-v2 --document docs/MODELING_V2.md",
+        "python -m lastpick benchmark-report --run experiments/modeling-v2/new-primary --holdout experiments/modeling-v2/new-holdout --ablations experiments/modeling-v2/new-tree-ablations --reevaluation experiments/modeling-v2/reloaded.json --audit reports/modeling-v2/generated/audit.json --output reports/modeling-v2 --document docs/MODELING_V2.md",
         "```",
         "",
         "use --build to select a retained dataset build, --models to select the suite, --seed for deterministic sampling and --output for a fresh run directory; research dependencies are optional and imported by research commands",
@@ -533,6 +609,7 @@ def export_report(
         "",
         "the CI installs the normal dev/web extras and runs no real corpus or full model training; the local numerical smoke uses two tiny MLP epochs",
         "",
+        *verification_lines,
         "## conclusions and next research question",
         "",
         "the LightGBM with history is the validation-selected benchmark and a good probability/context-sensitivity compromise; raw CatBoost has the lowest primary test loss, while LR with context has the highest primary test AUC and is the simplest competitive classifier",

@@ -8,7 +8,7 @@ from typing import Any, Iterator
 
 from lastpick.data.io import atomic_json
 from lastpick.data.schemas import Match, match_from_record
-from lastpick.experiments.data import dataset_identity, load_decisions
+from lastpick.experiments.data import dataset_identity, load_decisions, verify_canonical
 
 
 def canonical_records(directory: Path) -> Iterator[Match]:
@@ -42,6 +42,7 @@ def distribution(values: list[float]) -> dict[str, Any]:
 
 def audit_dataset(build: Path, canonical: Path, output: Path) -> dict[str, Any]:
     rows = load_decisions(build)
+    canonical_verification = verify_canonical(build, canonical)
     manifest = json.loads((build / "manifest.json").read_text())
     matches = Counter(d.match_id for d in rows)
     counts: dict[str, Counter[str]] = defaultdict(Counter)
@@ -118,6 +119,7 @@ def audit_dataset(build: Path, canonical: Path, output: Path) -> dict[str, Any]:
     }
     result = {
         "dataset": dataset_identity(build),
+        "canonical_verification": canonical_verification,
         "raw_matches": manifest["raw_matches"],
         "normalized_matches": manifest["canonical_matches"],
         "normalization": manifest["normalization"],

@@ -112,3 +112,20 @@ def dataset_identity(build: Path) -> dict[str, Any]:
         "canonical_input_digest": manifest["input_digest"],
         "raw_digest": manifest["normalization"]["raw_digest"],
     }
+
+
+def verify_canonical(build: Path, canonical: Path) -> dict[str, Any]:
+    manifest = json.loads((build / "manifest.json").read_text())
+    index = json.loads((canonical / "index.json").read_text())
+    inputs = hashlib.sha256()
+    for filename in sorted(index["files"]):
+        inputs.update(filename.encode() + bytes.fromhex(digest(canonical / filename)))
+    actual = inputs.hexdigest()
+    if len(index["files"]) != manifest["canonical_matches"] or actual != manifest["input_digest"]:
+        raise Rejection("canonical_build_digest_mismatch")
+    return {
+        "canonical_matches": len(index["files"]),
+        "input_digest": actual,
+        "index_sha256": digest(canonical / "index.json"),
+        "verified": True,
+    }
