@@ -43,6 +43,9 @@ def main(argv: list[str] | None = None) -> None:
     benchmark.add_argument("--train-fraction", type=float, default=0.7)
     benchmark.add_argument("--validation-fraction", type=float, default=0.15)
     benchmark.add_argument("--patch-holdout", action="store_true")
+    benchmark.add_argument(
+        "--holdout-start", type=int, help="UTC Unix time; reserve all later matches for test"
+    )
     benchmark.add_argument("--max-nn-epochs", type=int, default=20)
     benchmark.add_argument("--output", type=Path, required=True)
     evaluate = commands.add_parser("evaluate")
@@ -122,6 +125,7 @@ def main(argv: list[str] | None = None) -> None:
             args.validation_fraction,
             args.patch_holdout,
             args.max_nn_epochs,
+            args.holdout_start,
         )
     elif args.command == "evaluate":
         from lastpick.experiments.benchmark import evaluate_run

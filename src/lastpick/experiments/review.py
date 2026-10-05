@@ -23,6 +23,7 @@ def role_review_sample(
     inferer = make_inferer(config.roles)
     strata: dict[str, list[tuple[str, dict[str, Any]]]] = defaultdict(list)
     counts: dict[str, int] = defaultdict(int)
+    per_cell = max(10, size // 3 + 1)
     for match in canonical_records(canonical):
         try:
             validate_filters(match, config.filters)
@@ -75,18 +76,25 @@ def role_review_sample(
                     )
             strata[stratum].append((key, row))
             strata[stratum].sort(key=lambda pair: pair[0])
-            # Retain enough candidates per cell for a balanced sample without holding the corpus.
-            strata[stratum] = strata[stratum][:10]
+            # retain enough candidates per cell for a balanced sample without holding the corpus
+            strata[stratum] = strata[stratum][:per_cell]
     ordered = sorted(strata, key=lambda s: hashlib.sha256(f"{seed}:{s}".encode()).hexdigest())
     chosen = []
-    for depth in range(10):
+    reservoirs: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for depth in range(per_cell):
         for stratum in ordered:
             if len(strata[stratum]) > depth:
-                chosen.append(strata[stratum][depth][1])
-                if len(chosen) == size:
-                    break
-        if len(chosen) == size:
-            break
+                reservoirs[stratum.split(":")[0]].append(strata[stratum][depth][1])
+    # equal primary quotas keep abstentions represented despite their smaller cell count
+    buckets = ("high", "medium", "abstention")
+    for i, bucket in enumerate(buckets):
+        quota = size // 3 + int(i < size % 3)
+        chosen.extend(reservoirs[bucket][:quota])
+        reservoirs[bucket] = reservoirs[bucket][quota:]
+    while len(chosen) < size and any(reservoirs.values()):
+        for bucket in buckets:
+            if reservoirs[bucket] and len(chosen) < size:
+                chosen.append(reservoirs[bucket].pop(0))
     output.parent.mkdir(parents=True, exist_ok=True)
     if not chosen:
         raise ValueError("no eligible review examples")
@@ -100,7 +108,10 @@ def role_review_sample(
         "eligible_team_count": sum(counts.values()),
         "strata_counts": dict(counts),
         "represented_strata": len({r["stratum"] for r in chosen}),
-        "sampling": "Hash-priority sample, round-robin across confidence/difficult/patch/rank/hero cells; not population-weighted. Up to 10 examples per cell.",
+        "bucket_counts": {
+            bucket: sum(r["stratum"].startswith(bucket + ":") for r in chosen) for bucket in buckets
+        },
+        "sampling": "equal high/medium/abstention quotas, then hash-priority round-robin across difficult/patch/rank/hero cells; shortages redistribute; not population-weighted",
         "labels": "Human review columns are intentionally blank. Heuristic confidence is not role ground truth.",
     }
     atomic_json(output.with_suffix(".json"), report)

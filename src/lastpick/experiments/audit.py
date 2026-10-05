@@ -68,6 +68,8 @@ def audit_dataset(build: Path, canonical: Path, output: Path) -> dict[str, Any]:
         heroes[d.chosen_hero]["wins" if d.outcome else "losses"] += 1
         month = datetime.fromtimestamp(d.start_time or 0, timezone.utc).strftime("%Y-%m")
         counts["month"][month] += 1
+        day = datetime.fromtimestamp(d.start_time or 0, timezone.utc).strftime("%Y-%m-%d")
+        counts["day"][day] += 1
         month_hero[month][str(d.chosen_hero)] += 1
         month_rank[month][d.rank_bracket or "unknown"] += 1
     rejected_ids = set()
@@ -98,6 +100,22 @@ def audit_dataset(build: Path, canonical: Path, output: Path) -> dict[str, Any]:
                     telemetry[f"{field}_{minute}"] += p.snapshot(field, minute) is not None
     times = [d.start_time for d in rows if d.start_time is not None]
     n = len(rows)
+    unique_times = sorted(set(times))
+    gaps = sorted(((b - a, a, b) for a, b in zip(unique_times, unique_times[1:])), reverse=True)[
+        :10
+    ]
+    discontinuities = {
+        "largest_time_gaps": [
+            {"gap_seconds": gap, "before": utc(a), "after": utc(b)} for gap, a, b in gaps
+        ],
+        "largest_day_fraction": max(counts["day"].values()) / n if n else None,
+        "patch_count": len(counts["patch"]),
+        "month_rank_mix": {
+            month: {rank: count / sum(group.values()) for rank, count in group.items()}
+            for month, group in month_rank.items()
+        },
+        "warning": "collection windows and rank mixtures describe the cache, not the population; no causal attribution to collection strategy is possible without discovery logs",
+    }
     result = {
         "dataset": dataset_identity(build),
         "raw_matches": manifest["raw_matches"],
@@ -136,18 +154,19 @@ def audit_dataset(build: Path, canonical: Path, output: Path) -> dict[str, Any]:
         "month_rank_counts": dict(month_rank),
         "duplicate_canonical_ids": duplicate_ids,
         "duplicate_decisions": 0,
+        "collection_discontinuities": discontinuities,
         "source_canonical_overlap": "Canonical records are normalized representations of raw matches, not additional samples. Only the indexed build is loaded.",
     }
     output.mkdir(parents=True, exist_ok=True)
     atomic_json(output / "audit.json", result)
     lines = [
-        "# Full v2 corpus audit",
+        "# full v2 corpus audit",
         "",
-        f"Raw {result['raw_matches']:,}; normalized {result['normalized_matches']:,}; accepted {result['accepted_matches']:,}; rejected {result['rejected_matches']:,}.",
-        f"General decisions {result['general_decisions']:,}; true 4v4 decisions {n:,} from {len(matches):,} matches.",
-        f"Time range: {result['time_range']}",
+        f"raw {result['raw_matches']:,}; normalized {result['normalized_matches']:,}; accepted {result['accepted_matches']:,}; rejected {result['rejected_matches']:,}",
+        f"general decisions {result['general_decisions']:,}; true 4v4 decisions {n:,} from {len(matches):,} matches",
+        f"time range: {result['time_range']}",
         "",
-        "## Coverage and selection",
+        "## coverage and selection",
         "",
     ]
     for field in (
@@ -157,6 +176,7 @@ def audit_dataset(build: Path, canonical: Path, output: Path) -> dict[str, Any]:
         "missing_metadata_rates",
         "telemetry_coverage",
         "low_support_heroes_under_100",
+        "collection_discontinuities",
     ):
         lines += [
             f"### {field}",
@@ -176,11 +196,11 @@ def audit_dataset(build: Path, canonical: Path, output: Path) -> dict[str, Any]:
             "",
         ]
     lines += [
-        "## Collection discontinuities",
+        "## collection discontinuities",
         "",
-        "Inspect monthly patch/rank/candidate distributions in audit.json. Concentration reflects the cached collection, not Dota's population. Low-support heroes remain in audit/classification; ranking support is a separate training-only policy.",
-        f"Visible bans: {result['visible_ban_coverage']}; unlocated bans: {result['unlocated_ban_coverage']}. Unknown bans never exclude evaluation candidates.",
-        "No raw/canonical duplicate samples are concatenated. Duplicate decision and canonical checks are explicit.",
+        "monthly patch/rank/candidate distributions are in audit.json; concentration reflects the cached collection, with low-support heroes retained in audit and classification",
+        f"visible bans: {result['visible_ban_coverage']}; unlocated bans: {result['unlocated_ban_coverage']}; unknown bans never exclude evaluation candidates",
+        "raw and canonical forms are the same observations; duplicate decision and canonical checks are explicit",
     ]
     (output / "audit.md").write_text("\n".join(lines) + "\n")
     return result

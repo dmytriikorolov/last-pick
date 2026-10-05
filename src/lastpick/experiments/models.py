@@ -11,7 +11,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-from lastpick.experiments.features import FeatureEncoder
+from lastpick.experiments.features import HISTORY_GROUPS, FeatureEncoder
 from lastpick.experiments.metrics import classification
 
 
@@ -22,6 +22,7 @@ class PriorModel:
         self.groups = ("candidate", "context") if kind == "hero_side" else ("candidate",)
 
     def fit(self, rows):
+        started = time.perf_counter()
         self.base = float(np.mean([d.outcome for d in rows]))
         self.counts, self.wins = Counter(), Counter()
         self.side_counts, self.side_wins = Counter(), Counter()
@@ -31,7 +32,7 @@ class PriorModel:
             self.side_counts[(d.chosen_hero, d.side)] += 1
             self.side_wins[(d.chosen_hero, d.side)] += d.outcome
         self.parameters = {"kind": self.kind, "shrinkage": self.shrinkage, "hero_side_minimum": 100}
-        self.train_seconds = 0.0
+        self.train_seconds = time.perf_counter() - started
         return self
 
     def predict(self, rows, history=None, candidates=None):
@@ -45,7 +46,7 @@ class PriorModel:
                     self.counts[h] + self.shrinkage
                 )
                 key = (h, d.side)
-                # Sparse hero/side cells fall back to the shrunk hero prior.
+                # sparse hero/side cells fall back to the shrunk hero prior
                 if self.kind == "hero_side" and self.side_counts[key] >= 100:
                     value = (self.side_wins[key] + self.shrinkage * value) / (
                         self.side_counts[key] + self.shrinkage
@@ -65,10 +66,13 @@ class TabularModel:
         self.encoder = FeatureEncoder(groups, static)
 
     def records(self, rows, history, candidates=None):
+        needs_history = any(g in HISTORY_GROUPS for g in self.groups)
         return [
             self.encoder.record(
                 d,
-                history.for_decision(d, None if candidates is None else candidates[i]),
+                history.for_decision(d, None if candidates is None else candidates[i])
+                if needs_history
+                else None,
                 None if candidates is None else candidates[i],
             )
             for i, d in enumerate(rows)
@@ -107,7 +111,7 @@ class TabularModel:
             x, xv = self.cat_matrix(train, records), self.cat_matrix(validation, valid_records)
             options = [{"depth": 4, "l2_leaf_reg": 10}, {"depth": 6, "l2_leaf_reg": 20}]
         elif self.kind == "lightgbm":
-            # macOS wheels need libomp. PyTorch often supplies a compatible copy.
+            # macOS wheels need libomp. PyTorch often supplies a compatible copy
             if sys.platform == "darwin":
                 import torch
 
@@ -172,6 +176,7 @@ class TabularModel:
                 best, self.model, self.parameters = loss, model, parameters
         self.parameters = {
             **self.parameters,
+            "estimator_parameters": self.model.get_params(),
             "search": self.search,
             "seed": self.seed,
             "max_iterations": 400,
@@ -205,6 +210,7 @@ class NeuralModel:
         import torch
 
         candidate, allies, enemies, records = [], [], [], []
+        needs_history = any(g in HISTORY_GROUPS for g in self.groups)
         for i, d in enumerate(rows):
             h = d.chosen_hero if candidates is None else candidates[i]
             candidate.append(self.hero_to_index.get(h, 0))
@@ -221,7 +227,9 @@ class NeuralModel:
             records.append(
                 self.encoder.record(
                     d,
-                    history.for_decision(d, None if candidates is None else h),
+                    history.for_decision(d, None if candidates is None else h)
+                    if needs_history
+                    else None,
                     None if candidates is None else h,
                 )
             )
@@ -248,7 +256,7 @@ class NeuralModel:
             {h for d in train for h in (d.chosen_hero,) + d.visible_allies + d.visible_enemies}
         )
         self.hero_to_index = {h: i for i, h in enumerate(heroes, 1)}
-        # Candidate/draft identity comes from the existing permutation-invariant embeddings.
+        # candidate/draft identity comes from the existing permutation-invariant embeddings
         self.encoder = FeatureEncoder(
             [g for g in self.groups if g not in ("candidate", "draft", "static")]
         )
@@ -280,7 +288,7 @@ class NeuralModel:
             for indices in torch.randperm(len(train), generator=generator).split(512):
                 optimizer.zero_grad()
                 logits = self.model(*(v[indices] for v in inputs))
-                # Every accepted canonical label has weight one; confidence is not a target probability.
+                # every accepted canonical label has weight one; confidence is not a target probability
                 loss = torch.nn.functional.binary_cross_entropy_with_logits(
                     logits, targets[indices]
                 )

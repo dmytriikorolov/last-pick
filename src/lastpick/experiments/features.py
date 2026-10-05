@@ -52,7 +52,7 @@ class HistoricalFeatures:
             match = match_from_record(json.loads((directory / f"{match_id}.json").read_text()))
             if match.start_time is None or match.start_time >= cutoff:
                 raise ValueError("evaluation match in historical training allowlist")
-            # No item/upgrade features in this benchmark; retain canonical farm snapshots.
+            # no item/upgrade features in this benchmark; retain canonical farm snapshots
             players = tuple(
                 replace(p, purchases=None, final_items=(), ability_upgrades=None)
                 for p in match.players
@@ -71,7 +71,7 @@ class HistoricalFeatures:
             if latest is not None and latest >= as_of:
                 raise ValueError("historical completion leakage")
             self.availability.append((d.match_id, d.side, as_of, history.position, latest))
-        # The frozen state is used for alternate candidate scoring, never test outcomes.
+        # the frozen state is used for alternate candidate scoring, never test outcomes
         history.advance(cutoff)
         self.stats = history.stats
         self.cutoff = cutoff
@@ -164,5 +164,5 @@ class FeatureEncoder:
         return self.scaler.transform(self.vectorizer.transform(records)).astype(np.float32)
 
     def raw(self, records):
-        # Trees use original units. Binary hero indicators avoid ordinal hero IDs.
+        # trees use original units. Binary hero indicators avoid ordinal hero IDs
         return self.vectorizer.transform(records).toarray().astype(np.float32)

@@ -85,7 +85,7 @@ def bootstrap(y, p, match_ids, seed=42, repetitions=200):
 
 
 def paired_bootstrap(y, first, second, match_ids, seed=42, repetitions=200):
-    # Negative differences favor the first model for log loss and Brier.
+    # negative differences favor the first model for log loss and Brier
     y, first, second = np.asarray(y), np.asarray(first), np.asarray(second)
     rng = np.random.default_rng(seed)
     unique, inverse = np.unique(match_ids, return_inverse=True)
@@ -135,10 +135,17 @@ def ranking_agreement(ranks, eligible, total):
 
 def subgroup_metrics(rows, y, p, minimum=100):
     result = {}
-    for name in ("patch", "rank_bracket", "side", "time_bucket"):
+    times = sorted({row.start_time for row in rows})
+    time_position = {t: i for i, t in enumerate(times)}
+    for name in ("patch", "rank_bracket", "side", "time_bucket", "time_quartile"):
         groups = {}
         for i, row in enumerate(rows):
-            value = row.start_time // (30 * 86400) if name == "time_bucket" else getattr(row, name)
+            if name == "time_bucket":
+                value = row.start_time // (30 * 86400)
+            elif name == "time_quartile":
+                value = min(3, 4 * time_position[row.start_time] // len(times))
+            else:
+                value = getattr(row, name)
             groups.setdefault(str(value), []).append(i)
         result[name] = {}
         for value, indices in sorted(groups.items()):

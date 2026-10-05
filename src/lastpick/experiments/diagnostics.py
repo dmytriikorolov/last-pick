@@ -137,7 +137,7 @@ def sensitivity(model, rows, pool, history, hero_universe, seed=42, size=256):
     result["different_drafts_mean_rank_correlation"] = (
         float(np.mean(different)) if different else None
     )
-    # Explicit alternate-candidate path recomputes historical pair features for changed drafts.
+    # explicit alternate-candidate path recomputes historical pair features for changed drafts
     candidates = [d.chosen_hero for d in selected]
     base = model.predict(selected, history, candidates)
     swapped = model.predict([replace(d, side=1 - d.side) for d in selected], history, candidates)

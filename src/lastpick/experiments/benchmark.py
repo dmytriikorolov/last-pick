@@ -122,6 +122,7 @@ def benchmark(
     validation_fraction: float = 0.15,
     patch_holdout: bool = False,
     max_epochs: int = 20,
+    holdout_start: int | None = None,
 ) -> Path:
     selected = models or list(SUITE)
     if unknown := set(selected) - set(SUITE):
@@ -129,18 +130,23 @@ def benchmark(
     if output.exists():
         raise FileExistsError(f"use a fresh run directory: {output}")
     rows = load_decisions(build)
-    if patch_holdout:
+    if patch_holdout and holdout_start is not None:
+        raise ValueError("choose patch holdout or a time holdout")
+    if patch_holdout or holdout_start is not None:
         patches = sorted({d.patch for d in rows if d.patch is not None})
         supported = [p for p in patches if sum(d.patch == p for d in rows) >= 1000]
-        if len(supported) < 2:
+        if patch_holdout and len(supported) < 2:
             raise ValueError("insufficient patch support for separate holdout")
-        last = supported[-1]
-        test_cutoff = min(d.start_time for d in rows if d.patch == last)
+        if holdout_start is not None:
+            test_cutoff = holdout_start
+        else:
+            last = supported[-1]
+            test_cutoff = min(d.start_time for d in rows if d.patch == last)
         earlier = [d for d in rows if d.start_time < test_cutoff]
         later = [d for d in rows if d.start_time >= test_cutoff]
         if len(earlier) < 3000 or len(later) < 1000:
             raise ValueError("insufficient chronological patch holdout support")
-        # Reserve the last 20% of earlier timestamps for validation
+        # reserve the last 20% of earlier timestamps for validation
         times = sorted({d.start_time for d in earlier})
         cutoff = times[int(0.8 * len(times))]
         parts = {
@@ -176,6 +182,7 @@ def benchmark(
         "evaluation_candidate_pool": list(pool),
         "split": split_summary(parts, cutoff, test_cutoff),
         "patch_holdout": patch_holdout,
+        "holdout_start": holdout_start,
         "history_scope": "training match IDs only; completion < decision start; evaluation frozen at validation cutoff",
         "training_ids_sha256": None,
         "bootstrap_repetitions": repetitions,
@@ -235,7 +242,7 @@ def benchmark(
             try:
                 model = TabularModel(kind, groups, seed, static).fit(train, validation, history)
             except (ImportError, OSError) as error:
-                # An unavailable optional dependency is an explicit failed model, not a hidden fallback
+                # an unavailable optional dependency is an explicit failed model, not a hidden fallback
                 results[name] = {"status": "unavailable", "error": str(error)}
                 atomic_json(directory / "metrics.json", results[name])
                 print(f"{name} unavailable: {error}", flush=True)
@@ -321,7 +328,7 @@ def benchmark(
         complete, key=lambda n: results[n]["partitions"]["validation"]["metrics"]["log_loss"]
     )
 
-    # Fit sigmoid calibration on validation only, after raw model selection
+    # fit sigmoid calibration on validation only, after raw model selection
     def logits(p):
         p = np.clip(p, 1e-6, 1 - 1e-6)
         return np.log(p / (1 - p)).reshape(-1, 1)
@@ -483,7 +490,7 @@ def evaluate_run(
         if digest(run / name) != expected:
             raise ValueError(f"run artifact digest mismatch: {name}")
     rows = [d for d in load_decisions(build) if d.start_time >= config["split"]["test_cutoff"]]
-    # Pickles are local experiment artifacts; never load an untrusted downloaded model
+    # pickles are local experiment artifacts; never load an untrusted downloaded model
     with (run / "history.pkl").open("rb") as stream:
         history = pickle.load(stream)
     result = {}

@@ -1,4 +1,5 @@
 import csv
+import importlib.util
 import json
 from dataclasses import replace
 
@@ -249,3 +250,26 @@ def test_tiny_end_to_end_run_and_reload(tmp_path):
     assert repeated["lr_draft"]["metrics"] == original["lr_draft"]["partitions"]["test"]["metrics"]
     assert (output / "artifacts.json").exists()
     assert classification([0, 1], [0.2, 0.8])["log_loss"] < 0.3
+
+
+@pytest.mark.parametrize("kind", ["catboost", "lightgbm"])
+def test_optional_tree_smoke_and_order_invariance(tmp_path, kind):
+    if importlib.util.find_spec(kind) is None:
+        pytest.skip(f"optional {kind} research dependency is absent")
+    split, history = safe_history(tmp_path)
+    model = TabularModel(kind, ("candidate", "draft", "context")).fit(
+        list(split.train), list(split.validation), history
+    )
+    rows = list(split.test)
+    candidates = [d.chosen_hero for d in rows]
+    p = model.predict(rows, history, candidates)
+    reordered = [
+        replace(
+            d,
+            visible_allies=tuple(reversed(d.visible_allies)),
+            visible_enemies=tuple(reversed(d.visible_enemies)),
+        )
+        for d in rows
+    ]
+    np.testing.assert_allclose(p, model.predict(reordered, history, candidates), atol=1e-10)
+    assert np.all((p > 0) & (p < 1))
