@@ -1,0 +1,40 @@
+{
+  "pytest_research": {
+    "command": "python -m pytest -q",
+    "passed": 91,
+    "warnings": 3,
+    "seconds": 5.88
+  },
+  "pytest_without_research": {
+    "command": "python -m pytest -q",
+    "passed": 89,
+    "skipped": 2,
+    "warnings": 1,
+    "seconds": 5.25
+  },
+  "ruff_check": {
+    "command": "python -m ruff check .",
+    "result": "all checks passed"
+  },
+  "ruff_format": {
+    "command": "python -m ruff format --check .",
+    "files": 97,
+    "result": "already formatted"
+  },
+  "mypy": {
+    "command": "python -m mypy",
+    "files": 32,
+    "result": "no issues"
+  },
+  "saved_model_test_metrics": {
+    "primary_models": 20,
+    "holdout_models": 8,
+    "result": "exact reproduction"
+  },
+  "remote_ci_run": false,
+  "warnings": [
+    "existing importlib metadata deprecation",
+    "two LightGBM eval_set deprecations"
+  ],
+  "environment": "Apple Silicon arch -arm64, existing venv, optional dependencies from /private/tmp"
+}

@@ -1,0 +1,14 @@
+model,groups,validation_log_loss,test_log_loss,validation_delta_from_previous
+lr_candidate,candidate,0.692099928855896,0.6939331293106079,
+lr_draft,"candidate,draft",0.6905587315559387,0.6872692108154297,-0.0015411972999572754
+lr_static,"candidate,draft,static",0.6905562877655029,0.687273383140564,-2.4437904357910156e-06
+lr_profile,"candidate,draft,static,profile,support",0.6906045079231262,0.6874014735221863,4.8220157623291016e-05
+lr_synergy,"candidate,draft,static,profile,synergy,support",0.6906057596206665,0.6874514222145081,1.2516975402832031e-06
+lr_matchup,"candidate,draft,static,profile,synergy,matchup,support",0.6908286213874817,0.6872271299362183,0.00022286176681518555
+lr_farming,"candidate,draft,static,profile,synergy,matchup,farming_stage,support",0.6907681822776794,0.6872776746749878,-6.0439109802246094e-05
+lr_full,"candidate,draft,static,profile,synergy,matchup,farming_stage,support,context",0.6904891133308411,0.6861056089401245,-0.0002790689468383789
+catboost_raw,"candidate,draft,context",0.6877622049878215,0.6846349408591876,
+catboost_static,"candidate,draft,static,context",0.6873526716616158,0.684844648684357,-0.00040953332620563554
+catboost_profile,"candidate,draft,static,profile,support,context",0.6866744256295247,0.6850418471046422,-0.000678246032091101
+catboost_pairs,"candidate,draft,static,profile,synergy,matchup,support,context",0.6871212433176684,0.6852125852574362,0.00044681768814369693
+catboost_full,"candidate,draft,static,profile,synergy,matchup,farming_stage,support,context",0.6872449595380647,0.6846544042348577,0.00012371622039630825

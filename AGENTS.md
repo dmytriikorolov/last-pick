@@ -5,13 +5,16 @@
 This is `dmytriikorolov/lastPick`, a Dota 2 position-1 last-pick recommender.
 The finished ISP submission earned credit. Foundation v2 supplies safe data,
 engineering and evaluation foundations; the shipped UI still uses the ISP NN.
+modeling & evaluation v2 now supplies a full-corpus observational benchmark
+see `docs/MODELING_V2.md` and tracked `reports/modeling-v2/` summaries
 The eventual product includes strong baselines, learned roles, temporal meta,
 matchups/synergy, items, personalization, explanations, live drafts and retraining.
 Those are future research milestones, not requirements to implement opportunistically.
 
 ## Baseline preservation
 
-- `isp-v1` identifies final ISP commit `7dd54e2`. Development branch: `foundation-v2`.
+- `isp-v1` identifies final ISP commit `7dd54e2`
+  foundation v2 merged into main at `f0444b1`; current branch is `modeling-evaluation-v2`
 - Protect `models/final_carry_recommender.pt` and `models/final_carry_training_results.json`.
   Do not overwrite/retrain these files to run experiments. The corrected trainer
   writes `models/foundation_*` by default and refuses the ISP output paths.
@@ -46,6 +49,12 @@ Those are future research milestones, not requirements to implement opportunisti
   statistics, immutable returned snapshots, training allowlists and frozen evaluation.
 - `features/selection.py`: model-specific selection separate from accumulation.
 - `evaluation/splits.py`: deterministic chronological match/timestamp grouping.
+- `experiments/data.py`: verified 4v4 loader, draft input allowlist and training-only evaluation pools
+- `experiments/audit.py`, `review.py`: full-corpus audit and balanced independent role-review pack
+- `experiments/features.py`: unordered features and completed-match training-only AsOfHistory inputs
+- `experiments/models.py`: priors, LR, CatBoost, LightGBM and the existing small CarryModel
+- `experiments/metrics.py`, `diagnostics.py`: calibration, match bootstrap, subgroups, agreement and sensitivity
+- `experiments/benchmark.py`, `reporting.py`: reproducible runs, reload checks and generated research reports
 - `models/carry.py`, `models/training.py`: preserved MLP, corrected quality weights.
 - `recommender/carry.py`: inference, candidate pool/pick/ban constraints.
 - `legacy/`: quarantined ISP CSV extraction, descriptive aggregates and tooling.
@@ -139,10 +148,12 @@ tests use only the tracked checkpoint and constants, never the large raw corpus.
 CI runs lint, format, strict typing for the v2 domain/ingestion/dataset/history
 APIs, and the full suite. Retained dynamic ISP ML/legacy modules are excluded from
 strict mypy scope. Apple Silicon may require `arch -arm64` with the existing venv.
-Final local verification: 78 tests passed, Ruff lint/format passed, strict mypy
-passed for 27 core files. A 200-match copied-data smoke produced 216 general and
-81 last-pick decisions, without altering ISP data/artifacts. Full details and the
-environment warning are in `docs/FOUNDATION_V2.md`; remote CI has not yet run.
+foundation verification was 78 tests and 27 strict core files, with a 200-match smoke
+modeling verification is 91 tests with research dependencies, Ruff lint/format passed
+and strict mypy passed for 32 files; without research packages, 89 pass and 2 skip
+the core contract/audit/review/report APIs are strict; numerical research modules
+follow the existing dynamic ML convention and are excluded from strict mypy
+the suite remains synthetic and takes about 5 seconds locally; remote CI was not run
 
 ## Working rules and next milestones
 
@@ -152,9 +163,77 @@ or introduce heavy infrastructure/fancy ML without a requested milestone. Record
 rejection reasons; do not swallow broad exceptions or invent zero telemetry.
 Keep future Codex knowledge and architecture docs synchronized with real commands.
 
-Next: build/audit the full v2 4v4 corpus, establish temporal majority/hero-rate/LR
-and existing MLP baselines, document ablations, coverage/support and calibration.
-Create an independently adjudicated role evaluation set, stratified by patch/rank,
-before training or claiming a supervised classifier. Later: meta drift, matchup
-components, items, recommendation objective research, personalization, explanations,
-live integration and scheduled retraining. No naive counterfactual labels.
+## modeling v2 benchmark facts
+
+- full build: `data/processed/v2/build-vl4kzp0e`, indexed canonical directory unchanged in layout
+- raw 96,524; normalized 96,520; accepted 92,585; match rejections 3,935
+- normalization rejections: 2 invalid durations and 2 invalid event teams
+- dataset rejections: rank coverage 3,127; ambiguous final picks 428; short duration 269; rank below minimum 111
+- general decisions 109,822; 4v4 decisions 44,329 from 36,644 matches
+- time range 2026-06-04 to 2026-08-24 UTC; only patch ID 60, June/August collection windows with a 76.55-day gap
+- 4v4 ranks: Divine 22,048 and Immortal 22,281; sides: Radiant 22,290 and Dire 22,039
+- 111 chosen heroes, 71 with fewer than 100 total rows; those rows remain in classification
+- known bans 0%; unlocated bans 100%; unknown exact legality 100%; missing region 9.08%
+- lane/early-farm coverage about 68.70% of canonical players; all rank provenance is available player ranks
+- accepted matches contributing 0/1/2 last-pick decisions: 55,941 / 28,959 / 7,685
+- primary chronological rows: train 30,894, validation 6,592, test 6,843; evaluation pool 37 training-supported heroes
+- primary cutoffs 1787468454 and 1787517986; match IDs and equal timestamps never cross partitions
+- history uses training 4v4 match IDs only, completed strictly before decision time; validation/test freeze at the training cutoff
+- raw/decision digests and config/source hashes are in `reports/modeling-v2/benchmark.json`
+- local runs: `experiments/modeling-v2/full-seed42` at source `d9d1a7c` and `june-to-august-seed42` at `051da45`
+- 20 primary models: 4 priors, 10 LR variants, 2 CatBoost, 2 LightGBM, 2 small MLP variants
+- 3 additional CatBoost static/profile/pair ablations at `tree-ablations-seed42`, source `53b10a7`
+- priors shrink with 100 pseudo-games; hero/side cells require 100 training rows
+- the LR searches C 0.01/0.1/1; CatBoost depth 4/6 and L2 10/20; LightGBM 7/15 leaves; trees cap at 400 iterations
+- the MLP embedding is 16, hidden 64/32, Adam 0.001, weight decay 0.001, batch 512, cap 20 epochs, patience 4
+- primary NN parameter counts 9,345 draft-only and 14,977 full; best epochs 3 and 2 respectively
+- validation log-loss winner LightGBM full 0.687002; test loss 0.684811, AUC 0.573088, Brier 0.245864
+- expanded validation minimum CatBoost profile/support 0.686674, test 0.685042; extra variants reuse an inspected test set
+- extra profile/pair variants were not retrained in the June-to-August holdout; treat them as exploratory
+- primary test loss minimum CatBoost raw 0.684635; test AUC maximum LR context 0.577672
+- sigmoid LightGBM test ECE 0.004415, versus raw 0.007944; the global prior ECE is 0.004447 with AUC 0.5
+- full MLP test loss 0.687265, AUC 0.560961; it loses to conventional trees on probability quality
+- tree-to-tree and tree-to-LR loss differences are not resolved by 200-replicate paired match-bootstrap intervals
+- the LR context ranks Bloodseeker first in 99.49% of test drafts and has zero common-pool ally/enemy Top-1 changes
+- the CatBoost raw ranks Phantom Lancer first in 92.85% of drafts despite good classification loss
+- the LightGBM full has 33 Top-1 heroes, observed-pick Recall@1/3/5 0.0815/0.1776/0.2535, MRR 0.1892
+- the LightGBM full common-pool Top-1 changes are ally 17.58%, enemy 56.64%; perturbations are synthetic diagnostics
+- full MLP has the largest summed sensitivity among the initial 20 models; order permutation differences are zero
+- extra CatBoost pairs has the largest expanded sensitivity: ally 36.72%, enemy 57.42%, 32 Top-1 heroes
+- extra CatBoost static has observed-pick Recall@1 0.095 and MRR 0.2208, without better probability loss
+- ranking pool covers 96.45% of primary test picks; imitation metrics are observed-pick agreement, never causal recommendation quality
+- static/profile/synergy/farming additions do not consistently improve LR validation loss
+- extra CatBoost profile/support improves validation loss; adding pair deltas hurts it while increasing ranking sensitivity
+- separate June-to-August rows: train 20,140, validation 5,097, test 19,092; evaluation pool 36 heroes
+- the June-to-August candidate pick total variation is 0.235; LR context test loss 0.693833 is worse than global 0.693090
+- holdout CatBoost full test loss 0.688446, LightGBM full 0.689191, MLP full 0.691540
+- the June-fitted LightGBM sigmoid worsens August loss to 0.690113 and ECE to 0.016426
+- role-confidence sensitivity evaluates fixed models on subsets, without treating confidence as ground truth
+- the LightGBM test confidence >=0.90 has 4,837 rows, loss 0.683349, AUC 0.571166 versus all-row AUC 0.573088
+- manual review: `reports/role_review_sample.csv`, 400 unlabeled team cases, quotas 134 high / 133 medium / 133 abstention
+- independent human fields remain blank; strata cover difficult safelane cases, rank, hero and abstention reasons
+- the canonical byte digest matches the build; verification is in `reports/modeling-v2/source_verification.json`
+- new audit/benchmark calls verify canonical bytes against the build before historical feature construction
+
+## modeling commands and next milestone
+
+```sh
+python -m pip install -e '.[research,dev,web]'
+python -m lastpick audit-dataset
+python -m lastpick benchmark --seed 42 --output experiments/modeling-v2/new-run
+python -m lastpick benchmark --models global hero lr_context catboost_full lightgbm_full nn_full --holdout-start 1785542400 --output experiments/modeling-v2/new-holdout
+python -m lastpick evaluate --run experiments/modeling-v2/new-run --output experiments/modeling-v2/reloaded.json
+python -m lastpick role-review-sample --size 400
+python -m lastpick benchmark-report --run experiments/modeling-v2/new-run --audit reports/modeling-v2/generated/audit.json
+```
+
+research packages remain optional; macOS LightGBM can use PyTorch's bundled OpenMP
+all experimental models, predictions and large run artifacts are gitignored and separate
+from the protected ISP files; no production model, frontend or hosting changes were made
+
+next prioritize temporal coverage/modeling and rolling-origin calibration checks
+the strongest signal is performance/calibration degradation across the collection gap
+complete independent role review alongside that work before supervised role claims
+pair components may improve ranking behavior, but need evidence of probability benefit
+larger NNs, richer static hero knowledge and production promotion are not supported yet
+keep counterfactual outcomes unknown and do not generate negatives from unpicked heroes

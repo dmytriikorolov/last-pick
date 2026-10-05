@@ -274,7 +274,7 @@ historical summaries, not causal early-game strength labels. Quality selection
 can change sample composition. Full-corpus benchmarking and role adjudication
 are needed before claims about v2 model quality.
 
-Next: audit/build the full 4v4 corpus, compare chronological simple baselines and
-the existing MLP, evaluate calibration/coverage and patch/rank drift, and establish
-an independent role evaluation set. Complex neural models and live infrastructure
-remain later milestones.
+the full-corpus modeling benchmark is now recorded in [MODELING_V2.md](MODELING_V2.md)
+it compares priors, LR, CatBoost, LightGBM and the existing MLP with frozen history
+the next research priority follows the measured time/calibration drift, alongside
+independent role review; production model promotion remains a separate milestone
