@@ -31,6 +31,29 @@ def main(argv: list[str] | None = None) -> None:
         help="JSON array of training match IDs; required for model evaluation",
     )
     history.add_argument("--output", type=Path, required=True)
+    audit = commands.add_parser("audit-dataset")
+    audit.add_argument("--build", type=Path)
+    audit.add_argument("--output", type=Path, default=Path("reports/modeling-v2/generated"))
+    benchmark = commands.add_parser("benchmark")
+    benchmark.add_argument("--build", type=Path)
+    benchmark.add_argument("--models", nargs="+")
+    benchmark.add_argument("--seed", type=int, default=42)
+    benchmark.add_argument("--minimum-candidate-support", type=int, default=100)
+    benchmark.add_argument("--bootstrap", type=int, default=200)
+    benchmark.add_argument("--train-fraction", type=float, default=0.7)
+    benchmark.add_argument("--validation-fraction", type=float, default=0.15)
+    benchmark.add_argument("--patch-holdout", action="store_true")
+    benchmark.add_argument("--max-nn-epochs", type=int, default=20)
+    benchmark.add_argument("--output", type=Path, required=True)
+    evaluate = commands.add_parser("evaluate")
+    evaluate.add_argument("--build", type=Path)
+    evaluate.add_argument("--run", type=Path, required=True)
+    evaluate.add_argument("--output", type=Path, required=True)
+    evaluate.add_argument("--bootstrap", type=int, default=200)
+    review = commands.add_parser("role-review-sample")
+    review.add_argument("--size", type=int, default=400)
+    review.add_argument("--seed", type=int, default=42)
+    review.add_argument("--output", type=Path, default=Path("reports/role_review_sample.csv"))
     args = parser.parse_args(argv)
     config_path = args.config or args.root / "config/default.toml"
     config = load_config(config_path if args.config is not None or config_path.exists() else None)
@@ -60,6 +83,69 @@ def main(argv: list[str] | None = None) -> None:
         value["scope"] = "training_only" if allowed is not None else "descriptive"
         atomic_json(args.output, value)
         print(f"Historical snapshot: {args.output}")
+    elif args.command == "audit-dataset":
+        from lastpick.experiments.audit import audit_dataset
+        from lastpick.experiments.data import resolve_build
+
+        result = audit_dataset(
+            resolve_build(args.root, args.build), args.root / config.paths.normalized, args.output
+        )
+        print(
+            json.dumps(
+                {
+                    k: result[k]
+                    for k in (
+                        "raw_matches",
+                        "normalized_matches",
+                        "accepted_matches",
+                        "last_pick_decisions",
+                        "time_range",
+                    )
+                },
+                indent=2,
+            )
+        )
+    elif args.command == "benchmark":
+        from lastpick.experiments.benchmark import benchmark as run_benchmark
+        from lastpick.experiments.data import resolve_build
+
+        run_benchmark(
+            args.root,
+            resolve_build(args.root, args.build),
+            args.root / config.paths.normalized,
+            args.output,
+            args.models,
+            args.seed,
+            args.minimum_candidate_support,
+            args.bootstrap,
+            args.train_fraction,
+            args.validation_fraction,
+            args.patch_holdout,
+            args.max_nn_epochs,
+        )
+    elif args.command == "evaluate":
+        from lastpick.experiments.benchmark import evaluate_run
+        from lastpick.experiments.data import resolve_build
+
+        evaluate_run(
+            args.run, resolve_build(args.root, args.build), args.output, repetitions=args.bootstrap
+        )
+        print(f"Evaluation: {args.output}")
+    elif args.command == "role-review-sample":
+        from lastpick.experiments.review import role_review_sample
+
+        result = role_review_sample(
+            args.root / config.paths.normalized, args.output, config, args.size, args.seed
+        )
+        print(
+            json.dumps(
+                {
+                    k: result[k]
+                    for k in ("sample_size", "eligible_team_count", "represented_strata")
+                },
+                indent=2,
+            )
+        )
 
 
 if __name__ == "__main__":

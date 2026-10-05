@@ -16,3 +16,6 @@ dist/
 build/
 models/foundation_*.pt
 models/foundation_*_results.json
+experiments/modeling-v2/
+models/experiments/
+reports/modeling-v2/generated/

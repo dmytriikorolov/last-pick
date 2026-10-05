@@ -11,6 +11,7 @@ dependencies = []
 
 [project.optional-dependencies]
 ml = ["numpy>=1.26,<3", "scipy>=1.11,<2", "scikit-learn>=1.4,<2", "torch>=2.2,<3"]
+research = ["lastpick[ml]", "catboost>=1.2,<2", "lightgbm>=4,<5"]
 web = ["lastpick[ml]", "Flask>=3.1,<4"]
 dev = ["pytest>=8,<9", "ruff>=0.11,<1", "mypy>=1.15,<2"]
 
@@ -37,9 +38,12 @@ select = ["E4", "E7", "E9", "F", "I"]
 
 [tool.mypy]
 files = ["src/lastpick"]
-exclude = ["src/lastpick/legacy/", "src/lastpick/models/carry.py", "src/lastpick/models/training.py", "src/lastpick/features/carry.py", "src/lastpick/recommender/carry.py"]
+exclude = ["src/lastpick/legacy/", "src/lastpick/models/carry.py", "src/lastpick/models/training.py", "src/lastpick/features/carry.py", "src/lastpick/recommender/carry.py", "src/lastpick/experiments/features.py", "src/lastpick/experiments/models.py", "src/lastpick/experiments/metrics.py", "src/lastpick/experiments/diagnostics.py", "src/lastpick/experiments/benchmark.py"]
 python_version = "3.11"
 strict = true
 follow_imports = "silent"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["lastpick.experiments.features", "lastpick.experiments.models", "lastpick.experiments.metrics", "lastpick.experiments.diagnostics", "lastpick.experiments.benchmark"]
+follow_imports = "skip"
