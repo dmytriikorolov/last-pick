@@ -57,6 +57,15 @@ def main(argv: list[str] | None = None) -> None:
     review.add_argument("--size", type=int, default=400)
     review.add_argument("--seed", type=int, default=42)
     review.add_argument("--output", type=Path, default=Path("reports/role_review_sample.csv"))
+    report_command = commands.add_parser("benchmark-report")
+    report_command.add_argument("--run", type=Path, required=True)
+    report_command.add_argument("--holdout", type=Path)
+    report_command.add_argument("--reevaluation", type=Path)
+    report_command.add_argument(
+        "--audit", type=Path, default=Path("reports/modeling-v2/generated/audit.json")
+    )
+    report_command.add_argument("--output", type=Path, default=Path("reports/modeling-v2"))
+    report_command.add_argument("--document", type=Path, default=Path("docs/MODELING_V2.md"))
     args = parser.parse_args(argv)
     config_path = args.config or args.root / "config/default.toml"
     config = load_config(config_path if args.config is not None or config_path.exists() else None)
@@ -150,6 +159,14 @@ def main(argv: list[str] | None = None) -> None:
                 indent=2,
             )
         )
+
+    elif args.command == "benchmark-report":
+        from lastpick.experiments.reporting import export_report
+
+        export_report(
+            args.run, args.audit, args.output, args.document, args.holdout, args.reevaluation
+        )
+        print(f"Report: {args.document}")
 
 
 if __name__ == "__main__":

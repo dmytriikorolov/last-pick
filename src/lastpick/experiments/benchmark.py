@@ -43,6 +43,12 @@ SUITE = {
     "lr_history": ("lr", tuple(g for g in RICH if g not in ("static", "context"))),
     "lr_full": ("lr", RICH),
     "catboost_raw": ("catboost", BASE + ("context",)),
+    "catboost_static": ("catboost", BASE + ("static", "context")),
+    "catboost_profile": ("catboost", BASE + ("static", "profile", "support", "context")),
+    "catboost_pairs": (
+        "catboost",
+        BASE + ("static", "profile", "synergy", "matchup", "support", "context"),
+    ),
     "catboost_full": ("catboost", RICH),
     "lightgbm_raw": ("lightgbm", BASE + ("context",)),
     "lightgbm_full": ("lightgbm", RICH),

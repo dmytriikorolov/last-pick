@@ -2,6 +2,7 @@ import csv
 import importlib.util
 import json
 from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -31,6 +32,7 @@ from lastpick.experiments.metrics import (
     subgroup_metrics,
 )
 from lastpick.experiments.models import NeuralModel, PriorModel, TabularModel
+from lastpick.experiments.reporting import export_report
 from lastpick.experiments.review import role_review_sample
 
 
@@ -66,6 +68,7 @@ def corpus(tmp_path, count=30):
             "raw_matches": count,
             "accepted": count,
             "rejected": 0,
+            "rejection_reasons": {},
             "raw_digest": "fixture",
         },
     )
@@ -221,13 +224,29 @@ def test_dataset_manifest_digest_integrity_and_audit(tmp_path):
 
 def test_role_review_deterministic_and_human_labels_blank(tmp_path):
     canonical_dir, _ = corpus(tmp_path)
+    files = json.loads((canonical_dir / "index.json").read_text())["files"]
+    for i, filename in enumerate(files):
+        value = json.loads((canonical_dir / filename).read_text())
+        for p in value["players"]:
+            if i < 10:
+                p["lane_role"] = None
+            elif i < 20:
+                carry = p["hero_id"] in (25, 17)
+                p["lh_t"] = [65 if carry else 15] * 16
+                p["gold_t"] = [4000 if carry else 2000] * 16
+            else:
+                carry = p["hero_id"] in (25, 17)
+                p["lh_t"] = [None] * 10 + [30 if carry else 15]
+                p["gold_t"] = [None] * 10 + [2400 if carry else 2000]
+        atomic_json(canonical_dir / filename, value)
     first, second = tmp_path / "review.csv", tmp_path / "review2.csv"
-    role_review_sample(canonical_dir, first, Config(), size=10)
+    review = role_review_sample(canonical_dir, first, Config(), size=10)
     role_review_sample(canonical_dir, second, Config(), size=10)
     assert first.read_bytes() == second.read_bytes()
     with first.open() as stream:
         rows = list(csv.DictReader(stream))
     assert len(rows) == 10
+    assert review["bucket_counts"] == {"high": 4, "medium": 3, "abstention": 3}
     assert all(
         not row[k] for row in rows for k in ("reviewed_pos1_slot", "reviewer_confidence", "notes")
     )
@@ -235,7 +254,7 @@ def test_role_review_deterministic_and_human_labels_blank(tmp_path):
 
 def test_tiny_end_to_end_run_and_reload(tmp_path):
     canonical_dir, build = corpus(tmp_path)
-    root = __import__("pathlib").Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[1]
     output = benchmark(
         root,
         build,
@@ -250,6 +269,16 @@ def test_tiny_end_to_end_run_and_reload(tmp_path):
     assert repeated["lr_draft"]["metrics"] == original["lr_draft"]["partitions"]["test"]["metrics"]
     assert (output / "artifacts.json").exists()
     assert classification([0, 1], [0.2, 0.8])["log_loss"] < 0.3
+    audit_dataset(build, canonical_dir, tmp_path / "audit")
+    export_report(
+        output,
+        tmp_path / "audit/audit.json",
+        tmp_path / "summary",
+        tmp_path / "docs/MODELING_V2.md",
+    )
+    exported = json.loads((tmp_path / "summary/benchmark.json").read_text())
+    assert exported["primary_config"]["dataset"] == dataset_identity(build)
+    assert "lr_draft" in (tmp_path / "docs/MODELING_V2.md").read_text()
 
 
 @pytest.mark.parametrize("kind", ["catboost", "lightgbm"])

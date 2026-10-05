@@ -41,9 +41,7 @@ def role_review_sample(
                 else "medium"
             )
             difficult = len(safelane) != 2 or prediction.reason == "ambiguous_pos1"
-            stratum = (
-                f"{bucket}:{int(difficult)}:{match.patch}:{match.rank_bracket}:{prediction.hero_id}"
-            )
+            stratum = f"{bucket}:{int(difficult)}:{match.patch}:{match.rank_bracket}:{prediction.hero_id}:{prediction.reason or 'accepted'}"
             counts[stratum] += 1
             key = hashlib.sha256(f"{seed}:{match.match_id}:{side}".encode()).hexdigest()
             row: dict[str, Any] = {
@@ -111,7 +109,7 @@ def role_review_sample(
         "bucket_counts": {
             bucket: sum(r["stratum"].startswith(bucket + ":") for r in chosen) for bucket in buckets
         },
-        "sampling": "equal high/medium/abstention quotas, then hash-priority round-robin across difficult/patch/rank/hero cells; shortages redistribute; not population-weighted",
+        "sampling": "equal high/medium/abstention quotas, then hash-priority round-robin across difficult/patch/rank/hero/reason cells; shortages redistribute; not population-weighted",
         "labels": "Human review columns are intentionally blank. Heuristic confidence is not role ground truth.",
     }
     atomic_json(output.with_suffix(".json"), report)
