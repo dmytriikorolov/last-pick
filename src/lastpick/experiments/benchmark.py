@@ -68,7 +68,7 @@ def write_csv(path, records):
     if not records:
         return
     with path.open("w", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=list(records[0]))
+        writer = csv.DictWriter(stream, fieldnames=list(records[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(records)
 

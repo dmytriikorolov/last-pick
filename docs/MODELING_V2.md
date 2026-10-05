@@ -435,7 +435,7 @@ synthetic tests cover match/time splits, train-only preprocessing/pools/history,
 
 the CI installs the normal dev/web extras and runs no real corpus or full model training; the local numerical smoke uses two tiny MLP epochs
 
-local verification passed 91 tests with 3 warnings in 5.88 seconds, or 89 tests with 2 optional skips and 1 warning in 5.25 seconds without research packages
+local verification passed 91 tests with 3 warnings in 5.65 seconds, or 89 tests with 2 optional skips and 1 warning in 5.25 seconds without research packages
 
 the Ruff lint check passed, all 97 files were formatted and strict mypy passed for 32 source files; check output is summarized in reports/modeling-v2/checks.json and remote CI has not run
 

@@ -3,7 +3,7 @@
     "command": "python -m pytest -q",
     "passed": 91,
     "warnings": 3,
-    "seconds": 5.88
+    "seconds": 5.65
   },
   "pytest_without_research": {
     "command": "python -m pytest -q",

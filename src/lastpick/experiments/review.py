@@ -97,7 +97,7 @@ def role_review_sample(
     if not chosen:
         raise ValueError("no eligible review examples")
     with output.open("w", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=list(chosen[0]))
+        writer = csv.DictWriter(stream, fieldnames=list(chosen[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(chosen)
     report = {

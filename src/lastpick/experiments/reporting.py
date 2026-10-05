@@ -34,7 +34,7 @@ def export_report(
     if audit["dataset"]["decisions_sha256"] != config["dataset"]["decisions_sha256"]:
         raise ValueError("audit and experiment dataset differ")
     output.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(run / "comparison.csv", output / "comparison.csv")
+    (output / "comparison.csv").write_text((run / "comparison.csv").read_text())
     # detailed predictions and models remain local; retain small, reviewable summaries
     compact_audit = dict(audit)
     compact_audit["distributions"] = {
@@ -96,7 +96,7 @@ def export_report(
             "drift": read_json(holdout / "drift.json"),
             "source_run_artifacts_sha256": digest(holdout / "artifacts.json"),
         }
-        shutil.copyfile(holdout / "comparison.csv", output / "holdout_comparison.csv")
+        (output / "holdout_comparison.csv").write_text((holdout / "comparison.csv").read_text())
     atomic_json(output / "benchmark.json", summary)
     ranking_rows = []
     for name, result in results.items():
@@ -119,7 +119,7 @@ def export_report(
             }
         )
     with (output / "ranking.csv").open("w", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=list(ranking_rows[0]))
+        writer = csv.DictWriter(stream, fieldnames=list(ranking_rows[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(ranking_rows)
     sequence = [
@@ -162,7 +162,7 @@ def export_report(
         )
         previous = validation
     with (output / "ablations.csv").open("w", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=list(ablations[0]))
+        writer = csv.DictWriter(stream, fieldnames=list(ablations[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(ablations)
     complete = {name: v for name, v in results.items() if v["status"] == "complete"}
