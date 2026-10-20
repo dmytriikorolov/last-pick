@@ -14,7 +14,8 @@ else:
 
 
 ROOT = project_root()
-# clean examples get full weight, questionable ones get half and excluded ones get zero
+# clean examples get full weight, questionable ones get half and
+# excluded ones get zero
 WEIGHTS = {"clean": 1.0, "questionable": 0.5, "exclude": 0.0}
 EXCLUDE_BELOW_SECONDS = 720
 QUESTIONABLE_BELOW_SECONDS = 1200
@@ -73,7 +74,8 @@ def rows(path):
         yield from csv.DictReader(source)
 
 
-# converts a value to a number or returns none if it is missing or invalid
+# converts a value to a number or returns none if it is missing or
+# invalid
 def value(raw):
     if raw in (None, ""):
         return None
@@ -103,14 +105,16 @@ def quality_row(example, match, candidate, other_abandon=False, player_count=10)
         "candidate_player_slot": example["candidate_player_slot"],
     }
     duration = value(match.get("duration")) if match else None
-    # checks that the player record belongs to the example's hero and team
+    # checks that the player record belongs to the example's hero and
+    # team
     matched = (
         candidate is not None
         and candidate.get("hero_id") == str(candidate_id)
         and candidate.get("side") == example["side"]
     )
     # stores each problem as 1 when present and 0 when absent
-    # not matched stops the player checks before accessing a missing record
+    # not matched stops the player checks before accessing a missing
+    # record
     result.update(
         {
             "candidate_abandon": int(matched and abandoned(candidate)),
@@ -174,14 +178,17 @@ def quality_row(example, match, candidate, other_abandon=False, player_count=10)
     return result
 
 
-# joins training examples with match and player stats and writes their quality rows
+# joins training examples with match and player stats and writes their
+# quality rows
 def build(input_dir, output_path):
     examples = list(rows(input_dir / "training_examples.csv"))
-    # a set keeps unique match and side pairs so repeated examples can be detected
+    # a set keeps unique match and side pairs so repeated examples can
+    # be detected
     decisions = {(row["match_id"], row["side"]) for row in examples}
     if len(decisions) != len(examples):
         raise ValueError("duplicate (match_id, side) in training_examples.csv")
-    # uses match id and player slot together to find each example's carry
+    # uses match id and player slot together to find each example's
+    # carry
     wanted = {(row["match_id"], row["candidate_player_slot"]) for row in examples}
     match_ids = {row["match_id"] for row in examples}
     # keeps only matches used by the training examples
@@ -193,7 +200,8 @@ def build(input_dir, output_path):
     candidates = {}
     severe_players = Counter()
     player_counts = Counter()
-    # counts all players and abandons but only stores the candidate player records
+    # counts all players and abandons but only stores the candidate
+    # player records
     for row in rows(input_dir / "player_match_features.csv"):
         match_id = row["match_id"]
         if match_id not in match_ids:
@@ -216,13 +224,15 @@ def build(input_dir, output_path):
         for example in examples:
             match_id = example["match_id"]
             candidate = candidates.get((match_id, example["candidate_player_slot"]))
-            # removes the candidate's abandon from the total to check other players separately
+            # removes the candidate's abandon from the total to check
+            # other players separately
             others = severe_players[match_id] - int(candidate is not None and abandoned(candidate))
             row = quality_row(
                 example, matches.get(match_id), candidate, others > 0, player_counts[match_id]
             )
             writer.writerow(row)
-            # counts statuses and individual problems for the console summary
+            # counts statuses and individual problems for the console
+            # summary
             statuses[row["quality_status"]] += 1
             for flag in FLAG_COLUMNS:
                 reasons[flag] += row[flag]

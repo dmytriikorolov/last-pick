@@ -1,4 +1,5 @@
-# observed-pick agreement, recommendation behavior and observational drift
+# Check how rankings respond to changes in a draft
+# Measure observed-pick agreement and shifts in the data
 
 from collections import Counter, defaultdict
 from dataclasses import replace
@@ -137,7 +138,8 @@ def sensitivity(model, rows, pool, history, hero_universe, seed=42, size=256):
     result["different_drafts_mean_rank_correlation"] = (
         float(np.mean(different)) if different else None
     )
-    # explicit alternate-candidate path recomputes historical pair features for changed drafts
+    # explicit alternate-candidate path recomputes historical pair
+    # features for changed drafts
     candidates = [d.chosen_hero for d in selected]
     base = model.predict(selected, history, candidates)
     swapped = model.predict([replace(d, side=1 - d.side) for d in selected], history, candidates)

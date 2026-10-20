@@ -112,7 +112,8 @@ complete_fields = [
 ]
 
 
-# gets a player's stat at a given minute or returns a blank if unavailable
+# gets a player's stat at a given minute or returns a blank if
+# unavailable
 def snapshot(player, field, minute, duration):
     timeline = player.get(field)
     # skips snapshots from after the match ended
@@ -126,7 +127,8 @@ def snapshot(player, field, minute, duration):
     return value if isinstance(value, (int, float)) and not isinstance(value, bool) else ""
 
 
-# creates match, player, purchase, ability and objective rows for one match
+# creates match, player, purchase, ability and objective rows for one
+# match
 def build_match_rows(match, item_names):
     match_id = match["match_id"]
     duration = match.get("duration")
@@ -186,14 +188,16 @@ def build_match_rows(match, item_names):
         for minute in (10, 20, 30):
             for source, name in (("lh_t", "lh"), ("gold_t", "gold"), ("xp_t", "xp")):
                 row[f"{name}_{minute}"] = snapshot(player, source, minute, duration)
-        # saves final item and backpack ids without guessing purchase times
+        # saves final item and backpack ids without guessing purchase
+        # times
         for i in range(6):
             row[f"item_{i}"] = player.get(f"item_{i}")
         for i in range(3):
             row[f"backpack_{i}"] = player.get(f"backpack_{i}")
         player_rows.append(row)
 
-        # keeps item keys and raw times including purchases before the match starts
+        # keeps item keys and raw times including purchases before the
+        # match starts
         for purchase in player.get("purchase_log") or []:
             if not isinstance(purchase, dict):
                 continue
@@ -212,7 +216,8 @@ def build_match_rows(match, item_names):
                 }
             )
 
-        # upgrade order shows the sequence of learned abilities rather than the time
+        # upgrade order shows the sequence of learned abilities rather
+        # than the time
         upgrades = player.get("ability_upgrades_arr")
         if isinstance(upgrades, list):
             for order, ability_id in enumerate(upgrades, 1):
@@ -228,7 +233,8 @@ def build_match_rows(match, item_names):
                         }
                     )
 
-    # copies objective events such as building kills with their available fields
+    # copies objective events such as building kills with their
+    # available fields
     objective_rows = []
     objectives = match.get("objectives")
     if isinstance(objectives, list):
@@ -255,7 +261,8 @@ def build_match_rows(match, item_names):
         if all(value is None for value in leaver_fields)
         else int(any(isinstance(value, (int, float)) and value > 0 for value in leaver_fields))
     )
-    # counts complete player records and checks for any player with all three timelines
+    # counts complete player records and checks for any player with all
+    # three timelines
     match_row = {
         "match_id": match_id,
         "start_time": match.get("start_time"),
@@ -306,7 +313,8 @@ def main():
     counts = Counter()
     available = Counter()
     seen_matches = set()
-    # closes all five output files automatically even if processing fails
+    # closes all five output files automatically even if processing
+    # fails
     with ExitStack() as stack:
         writers = {}
         for filename, columns in outputs.items():

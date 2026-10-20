@@ -20,7 +20,8 @@ def hero_id_to_name(hero_id):
     return names_by_id[int(hero_id)]
 
 
-# returns the hero id while ignoring spaces around the name and capital letters
+# returns the hero id while ignoring spaces around the name and capital
+# letters
 def hero_name_to_id(name):
     return ids_by_name[name.strip().casefold()]
 

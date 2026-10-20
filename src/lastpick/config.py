@@ -1,4 +1,7 @@
-"""Small, explicit TOML configuration. All paths are relative to a project root."""
+"""Read project settings from TOML Resolve asset paths relative to
+the
+project root
+"""
 
 import os
 import tomllib
@@ -86,7 +89,9 @@ class TrainingSettings:
 
 
 def project_root() -> Path:
-    """Assets stay in the checkout; installed users can set LASTPICK_ROOT."""
+    """Assets stay in the checkout
+    installed users can set LASTPICK_ROOT
+    """
     configured = os.environ.get("LASTPICK_ROOT")
     if configured:
         return Path(configured).resolve()

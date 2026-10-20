@@ -1,4 +1,5 @@
-# reproducible observational benchmark orchestration
+# Train and compare models with repeatable settings
+# Save the results needed to check and reload each run
 
 import csv
 import importlib.metadata
@@ -257,7 +258,8 @@ def benchmark(
             try:
                 model = TabularModel(kind, groups, seed, static).fit(train, validation, history)
             except (ImportError, OSError) as error:
-                # an unavailable optional dependency is an explicit failed model, not a hidden fallback
+                # an unavailable optional dependency is an explicit
+                # failed model, not a hidden fallback
                 results[name] = {"status": "unavailable", "error": str(error)}
                 atomic_json(directory / "metrics.json", results[name])
                 print(f"{name} unavailable: {error}", flush=True)
@@ -343,7 +345,8 @@ def benchmark(
         complete, key=lambda n: results[n]["partitions"]["validation"]["metrics"]["log_loss"]
     )
 
-    # fit sigmoid calibration on validation only, after raw model selection
+    # fit sigmoid calibration on validation only, after raw model
+    # selection
     def logits(p):
         p = np.clip(p, 1e-6, 1 - 1e-6)
         return np.log(p / (1 - p)).reshape(-1, 1)
@@ -505,7 +508,8 @@ def evaluate_run(
         if digest(run / name) != expected:
             raise ValueError(f"run artifact digest mismatch: {name}")
     rows = [d for d in load_decisions(build) if d.start_time >= config["split"]["test_cutoff"]]
-    # pickles are local experiment artifacts; never load an untrusted downloaded model
+    # pickles are local experiment artifacts
+    # never load an untrusted downloaded model
     with (run / "history.pkl").open("rb") as stream:
         history = pickle.load(stream)
     result = {}

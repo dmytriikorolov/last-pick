@@ -1,1 +1,1 @@
-"""Replaceable, explicitly heuristic role inference."""
+"""Replaceable, explicitly heuristic role inference"""

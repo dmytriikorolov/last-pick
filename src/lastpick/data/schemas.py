@@ -1,4 +1,6 @@
-"""JSON-friendly domain records; None means unavailable, never measured zero."""
+"""Shared records for matches, drafts and role evidence Use None for
+missing data so it stays distinct from a measured zero
+"""
 
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -47,7 +49,8 @@ class Player:
         values = getattr(self, field_name)
         if values is None:
             return None
-        # Parsed `times` can have non-minute intervals; do not assume index = minute.
+        # Parsed `times` can have non-minute intervals
+        # do not assume index = minute
         if self.times is not None:
             target = minute * 60
             if target not in self.times:
@@ -87,7 +90,8 @@ class Match:
     region: int | None = None
     cluster: int | None = None
     radiant_win: bool | None = None
-    # AP picks_bans order can be pick sequence followed by an unordered ban list.
+    # AP picks_bans order can be pick sequence followed by an unordered
+    # ban list
     event_order_kind: str = "source_order"
     schema_version: str = SCHEMA_VERSION
 

@@ -1,4 +1,6 @@
-"""Export the existing UI and final checkpoint as a standalone static site."""
+"""Export the existing UI and final checkpoint as a standalone static
+site
+"""
 
 import argparse
 import json

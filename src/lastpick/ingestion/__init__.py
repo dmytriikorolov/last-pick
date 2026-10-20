@@ -1,1 +1,1 @@
-"""Provider interface, durable discovery and raw source caches."""
+"""Provider interface, durable discovery and raw source caches"""

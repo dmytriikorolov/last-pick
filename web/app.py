@@ -1,4 +1,4 @@
-"""Run from the repository root with: python -m web.app."""
+"""Run from the repository root with: python -m web.app"""
 
 import json
 from pathlib import Path

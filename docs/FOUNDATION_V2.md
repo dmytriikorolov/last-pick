@@ -83,7 +83,11 @@ failures have bounded retries; numeric Retry-After is honored. Permanent HTTP
 errors and invalid response shapes are distinct. Failure reports do not print
 exception URLs containing credentials.
 
-Raw cache filenames remain `{match_id}.json`, so existing ISP downloads are reused.
+Raw caches accept `{match_id}.json` and `{match_id}.json.gz`, so existing ISP
+downloads are reused. New downloads use lossless gzip. Normalization hashes the
+original bytes and logical `.json` filenames, preserving digests after compression.
+`python -m scripts.compress_raw_matches` verifies compressed bytes before removing
+each plain original; interrupted conversions can be resumed.
 V2 state lives separately in `data/raw/opendota/foundation_state`: pending page,
 cursor, request budget/day, filter fingerprint, discovery metadata, outcomes and
 failure reports. Cursor advances only after finishing the page. Failed downloads

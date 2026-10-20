@@ -15,7 +15,8 @@ def ally_interactions(team):
 
 # averages the multiplied hero vectors for all 25 enemy pairs
 def cross_team_interactions(radiant, dire):
-    # extra dimensions let each radiant hero combine with every dire hero
+    # extra dimensions let each radiant hero combine with every dire
+    # hero
     return (radiant[:, :, None] * dire[:, None, :]).mean(dim=(1, 2))
 
 
@@ -26,7 +27,8 @@ class FullDraftSynergyModel(nn.Module):
         super().__init__()
         self.use_interactions = use_interactions
         self.embedding = nn.Embedding(hero_count, embedding_dim)
-        # uses two team averages and optionally three interaction vectors
+        # uses two team averages and optionally three interaction
+        # vectors
         self.network = nn.Sequential(
             nn.Linear(embedding_dim * (5 if use_interactions else 2), 64),
             nn.ReLU(),
@@ -38,7 +40,8 @@ class FullDraftSynergyModel(nn.Module):
     # turns a complete draft into one raw radiant win score
     def forward(self, hero_indices):
         heroes = self.embedding(hero_indices)
-        # the first five heroes are radiant and the remaining five are dire
+        # the first five heroes are radiant and the remaining five are
+        # dire
         radiant, dire = heroes[:, :5], heroes[:, 5:]
         parts = [radiant.mean(dim=1), dire.mean(dim=1)]
         if self.use_interactions:

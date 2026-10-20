@@ -24,9 +24,11 @@ def load_rows(path):
         return list(csv.DictReader(source))
 
 
-# splits earlier matches into training data and later matches into test data
+# splits earlier matches into training data and later matches into test
+# data
 def split_rows(rows, train_fraction=0.8):
-    # equal timestamps stay together so a match cannot appear in both groups
+    # equal timestamps stay together so a match cannot appear in both
+    # groups
     ordered_times = sorted({int(row["start_time"]) for row in rows})
     cutoff = ordered_times[int(len(ordered_times) * train_fraction)]
     train = [row for row in rows if int(row["start_time"]) < cutoff]
@@ -47,7 +49,8 @@ def hero_ids(rows):
     return sorted(found)
 
 
-# creates one signed column per hero with allies positive and enemies negative
+# creates one signed column per hero with allies positive and enemies
+# negative
 def features(rows, hero_to_index):
     # stores only nonzero values to avoid a large mostly empty table
     indices, data, indptr = [], [], [0]

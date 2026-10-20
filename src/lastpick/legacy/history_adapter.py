@@ -1,4 +1,6 @@
-"""Bridge ISP extracted CSV statistics into the canonical as-of engine."""
+"""Bridge ISP extracted CSV statistics into the canonical as-of
+engine
+"""
 
 from typing import Any
 

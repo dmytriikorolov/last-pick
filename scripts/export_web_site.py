@@ -1,4 +1,6 @@
-"""Compatibility entry point; reusable code lives in lastpick.legacy.export_site."""
+"""Keep the original script command working
+The implementation lives in lastpick.legacy.export_site
+"""
 
 if __package__:
     from . import _bootstrap as _bootstrap

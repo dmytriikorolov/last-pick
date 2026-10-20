@@ -1,4 +1,5 @@
-# probability metrics, calibration and match-clustered uncertainty
+# Measure prediction quality and calibration
+# Bootstrap whole matches so paired team decisions stay together
 
 from collections import Counter
 

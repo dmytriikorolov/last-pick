@@ -42,7 +42,8 @@ def test_model_feature_rows_obey_training_allowlist_freeze_and_selection():
     assert [r.match_id for r in rows] == [5, 4]
     assert all(r.source_matches == 1 and r.as_of == 3000 for r in rows)
     assert all(r.latest_available_time < r.as_of and len(r.values) == 2 for r in rows)
-    # Changing evaluation labels and all post-match role evidence cannot change inputs.
+    # Changing evaluation labels and all post-match role evidence cannot
+    # change inputs
     changed = [
         replace(d, outcome=not d.outcome, role=replace(d.role, evidence={"future_gold": 999999}))
         for d in contexts

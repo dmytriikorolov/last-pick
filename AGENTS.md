@@ -68,7 +68,10 @@ No new downstream component should re-parse OpenDota JSON independently.
 
 ## Data and invariants
 
-- ISP raw: `data/raw/opendota/matches/*.json`; ISP processed CSVs:
+- Raw caches: `data/raw/opendota/matches/*.json` or `*.json.gz`; new downloads use
+  gzip. `python -m scripts.compress_raw_matches` verifies original bytes before
+  removing plain copies. V2 reads both formats and preserves normalization digests;
+  legacy ISP extractors/tag require decompression first. ISP processed CSVs:
   drafts, training_examples, full_draft_examples, match_features,
   player_match_features, training_quality and extracted event tables.
 - Hero/item snapshots: tracked `data/constants/`, including `heroes.csv`.

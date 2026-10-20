@@ -15,7 +15,8 @@ csv_columns = (
 )
 
 
-# checks the final picks and creates one row with both teams and the result
+# checks the final picks and creates one row with both teams and the
+# result
 def build_full_draft_row(draft: dict) -> dict:
     teams = {0: [], 1: []}
     heroes = []

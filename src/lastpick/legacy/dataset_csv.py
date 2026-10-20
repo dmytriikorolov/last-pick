@@ -52,7 +52,8 @@ def infer_pos1(players: list, team: int) -> tuple[dict | None, str]:
     ):
         return None, "missing_required_data"
 
-    # OpenDota lane_role 1 is safelane; its two players are usually pos1 and pos5
+    # OpenDota lane_role 1 is safelane
+    # its two players are usually pos1 and pos5
     safelane = [p for p in team_players if p["lane_role"] == 1]
     if len(safelane) != 2:
         return None, "ambiguous_pos1"
@@ -121,7 +122,8 @@ def build_match_examples(match: dict) -> tuple[list[dict], Counter, bool]:
             skipped["candidate_phase_extra_attempt"] += 1
             continue
 
-        # enemy picks in the candidates current phase are hidden even when OpenDota places them earlier in the global pick order
+        # enemy picks in the candidates current phase are hidden even
+        # when OpenDota places them earlier in the global pick order
         visible_enemy_count = 2 if team_pick_number in (3, 4) else 4
         known_enemies = [hero_id for pick_team, hero_id in picks if pick_team != team]
         known_enemies = known_enemies[:visible_enemy_count]

@@ -1,4 +1,5 @@
-# full-corpus descriptive audit. Label telemetry never becomes a predictor
+# Summarize coverage and data quality across the full dataset
+# Keep post-match label evidence out of model inputs
 
 import json
 from collections import Counter, defaultdict

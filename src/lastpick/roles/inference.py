@@ -1,4 +1,6 @@
-"""Deterministic carry inference; confidence is evidence strength, not calibration."""
+"""Find likely carries from lane and early farm evidence Confidence
+describes the evidence strength, not a calibrated probability
+"""
 
 from statistics import mean
 from typing import Protocol
@@ -16,14 +18,17 @@ def abstain(method: str, reason: str, evidence: dict[str, object] | None = None)
 
 
 class LegacyPos1Heuristic:
-    """ISP rule, including requiring lane metadata for all five players."""
+    """ISP rule, including requiring lane metadata for all five
+    players
+    """
 
     def __init__(self, settings: RoleSettings | None = None) -> None:
         self.settings = settings or RoleSettings()
 
     @staticmethod
     def minute_ten(player: Player, name: str) -> float | None:
-        # Reproduce ISP's minute-index convention even when a separate times array exists.
+        # Reproduce ISP's minute-index convention even when a separate
+        # times array exists
         values = getattr(player, name)
         return values[10] if values is not None and len(values) > 10 else None
 
@@ -57,11 +62,16 @@ class LegacyPos1Heuristic:
 
 
 class FarmRoleBaseline:
-    """Compare safelane farm across available timestamps, with secondary source signals.
+    """Compare safelane farm across available timestamps, with
+    secondary
+    source signals
 
-    No hero whitelist and no invented supervised labels. Missing unrelated lane
-    metadata no longer excludes the team; trilane cases are supported. At least
-    two lane candidates and separated LH AND gold evidence are still required.
+    No hero whitelist and no invented supervised labels
+    Missing unrelated lane metadata no longer excludes the team
+    trilane cases are supported
+    At least two lane candidates and separated LH AND gold
+    evidence are
+    still required
     """
 
     def __init__(self, settings: RoleSettings | None = None) -> None:
@@ -92,7 +102,8 @@ class FarmRoleBaseline:
                 continue
             telemetry_present = True
             if len(set(values.values())) == 1:
-                # Identical snapshots contain no separation evidence (often all-zero early data).
+                # Identical snapshots contain no separation evidence
+                # (often all-zero early data)
                 continue
             usable.append(minute)
             for player in safe:
@@ -121,7 +132,8 @@ class FarmRoleBaseline:
             )
         scores = {}
         for p in safe:
-            # position_est is source evidence, never treated as a trusted target.
+            # position_est is source evidence, never treated as a
+            # trusted target
             position_hint = (
                 1.0 if p.position_est == 1 else -1.0 if p.position_est in (4, 5) else 0.0
             )
@@ -151,7 +163,8 @@ class FarmRoleBaseline:
                 "confidence_calibrated": False,
             }
         )
-        # Optional telemetry is reported without allowing final farm to override early evidence.
+        # Optional telemetry is reported without allowing final farm to
+        # override early evidence
         evidence["secondary"] = {
             str(p.slot): {
                 "position_est": p.position_est,

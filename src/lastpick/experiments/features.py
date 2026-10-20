@@ -1,4 +1,5 @@
-# explicit feature groups and training-only, completed-match historical inputs
+# Build feature groups from visible drafts and earlier matches
+# Only use completed matches from the training allowlist for history
 
 import csv
 import json
@@ -52,7 +53,8 @@ class HistoricalFeatures:
             match = match_from_record(json.loads((directory / f"{match_id}.json").read_text()))
             if match.start_time is None or match.start_time >= cutoff:
                 raise ValueError("evaluation match in historical training allowlist")
-            # no item/upgrade features in this benchmark; retain canonical farm snapshots
+            # no item/upgrade features in this benchmark
+            # retain canonical farm snapshots
             players = tuple(
                 replace(p, purchases=None, final_items=(), ability_upgrades=None)
                 for p in match.players
@@ -80,7 +82,8 @@ class HistoricalFeatures:
             if latest is not None and latest >= as_of:
                 raise ValueError("historical completion leakage")
             self.availability.append((d.match_id, d.side, as_of, history.position, latest))
-        # the frozen state is used for alternate candidate scoring, never test outcomes
+        # the frozen state is used for alternate candidate scoring,
+        # never test outcomes
         history.advance(cutoff)
         self.stats = history.stats
         self.cutoff = cutoff
@@ -110,7 +113,8 @@ class HistoricalFeatures:
             )
         if candidate is not None and candidate != d.chosen_hero:
             raise ValueError("alternate candidate scoring requires frozen evaluation rows")
-        # side is metadata and cannot choose another candidate's cached historical inputs
+        # side is metadata and cannot choose another candidate's cached
+        # historical inputs
         key = (
             d.match_id,
             d.start_time,
@@ -188,5 +192,6 @@ class FeatureEncoder:
         return self.scaler.transform(self.vectorizer.transform(records)).astype(np.float32)
 
     def raw(self, records):
-        # trees use original units. Binary hero indicators avoid ordinal hero IDs
+        # trees use original units
+        # Binary hero indicators avoid ordinal hero IDs
         return self.vectorizer.transform(records).toarray().astype(np.float32)

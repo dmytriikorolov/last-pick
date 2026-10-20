@@ -1,4 +1,5 @@
-# small deterministic research models. No protected production output paths
+# Small models for repeatable research runs
+# Keep their outputs away from the protected ISP model files
 
 import copy
 import ctypes
@@ -46,7 +47,8 @@ class PriorModel:
                     self.counts[h] + self.shrinkage
                 )
                 key = (h, d.side)
-                # sparse hero/side cells fall back to the shrunk hero prior
+                # sparse hero/side cells fall back to the shrunk hero
+                # prior
                 if self.kind == "hero_side" and self.side_counts[key] >= 100:
                     value = (self.side_wins[key] + self.shrinkage * value) / (
                         self.side_counts[key] + self.shrinkage
@@ -111,7 +113,8 @@ class TabularModel:
             x, xv = self.cat_matrix(train, records), self.cat_matrix(validation, valid_records)
             options = [{"depth": 4, "l2_leaf_reg": 10}, {"depth": 6, "l2_leaf_reg": 20}]
         elif self.kind == "lightgbm":
-            # macOS wheels need libomp. PyTorch often supplies a compatible copy
+            # macOS wheels need libomp
+            # PyTorch often supplies a compatible copy
             if sys.platform == "darwin":
                 import torch
 
@@ -256,7 +259,8 @@ class NeuralModel:
             {h for d in train for h in (d.chosen_hero,) + d.visible_allies + d.visible_enemies}
         )
         self.hero_to_index = {h: i for i, h in enumerate(heroes, 1)}
-        # candidate/draft identity comes from the existing permutation-invariant embeddings
+        # candidate/draft identity comes from the existing
+        # permutation-invariant embeddings
         self.encoder = FeatureEncoder(
             [g for g in self.groups if g not in ("candidate", "draft", "static")]
         )
@@ -288,7 +292,8 @@ class NeuralModel:
             for indices in torch.randperm(len(train), generator=generator).split(512):
                 optimizer.zero_grad()
                 logits = self.model(*(v[indices] for v in inputs))
-                # every accepted canonical label has weight one; confidence is not a target probability
+                # every accepted canonical label has weight one
+                # confidence is not a target probability
                 loss = torch.nn.functional.binary_cross_entropy_with_logits(
                     logits, targets[indices]
                 )

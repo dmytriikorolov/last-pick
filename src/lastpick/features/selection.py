@@ -1,4 +1,6 @@
-"""Model feature selection is separate from historical statistics accumulation."""
+"""Choose which historical stats a model uses Keep this separate from
+collecting the stats
+"""
 
 from dataclasses import dataclass
 from typing import Any

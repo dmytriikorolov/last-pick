@@ -67,7 +67,7 @@ def test_validation_rejection_keeps_raw_data_and_is_distinct_from_failure(tmp_pa
     collector = Collector(tmp_path, Config(), source)
     counts = collector.run()
     assert counts["validation_rejection"] == 1 and "fetch_failure" not in counts
-    assert (collector.raw_dir / "123.json").exists()
+    assert (collector.raw_dir / "123.json.gz").exists()
     report = json.loads((collector.directory / "outcomes/123.json").read_text())
     assert report["reason"] == "below_min_rank"
 
@@ -198,3 +198,14 @@ def test_source_and_adapter_interfaces_support_another_payload_shape(tmp_path):
     config = replace(Config(), source="example")
     collector = Collector(tmp_path, config, source, ExampleAdapter())
     assert collector.run()["accepted"] == 1
+
+
+def test_truncated_gzip_cache_is_reported_without_redownload(tmp_path):
+    from lastpick.data.io import atomic_gzip
+
+    collector = Collector(tmp_path, Config(), provider())
+    path = collector.raw_dir / "123.json.gz"
+    atomic_gzip(path, json.dumps(payload()).encode())
+    path.write_bytes(path.read_bytes()[:-8])
+    assert collector.run()["invalid_payload"] == 1
+    collector.source.fetch_match.assert_not_called()

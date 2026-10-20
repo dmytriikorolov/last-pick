@@ -1,1 +1,1 @@
-"""LastPick recommender APIs."""
+"""LastPick recommender APIs"""

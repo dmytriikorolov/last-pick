@@ -32,7 +32,8 @@ MATCHUP_FIELDS = [
     "matchup_mean_reliability",
 ]
 FEATURE_FIELDS = PROFILE_FIELDS + SYNERGY_FIELDS + MATCHUP_FIELDS
-# uses 100 imaginary games at a 50 percent win rate to soften small sample results
+# uses 100 imaginary games at a 50 percent win rate to soften small
+# sample results
 PRIOR_GAMES = 100
 
 
@@ -60,7 +61,8 @@ def empty_stats(
 
 # creates a text key for two heroes
 def pair_key(a, b, allied=False):
-    # ally order does not matter but enemy matchups keep the candidate first
+    # ally order does not matter but enemy matchups keep the candidate
+    # first
     if allied:
         a, b = sorted((a, b))
     return f"{a}:{b}"
@@ -70,7 +72,8 @@ def pair_key(a, b, allied=False):
 def add_match(stats: dict[str, Any], match: dict[str, Any]) -> None:
     won = match["radiant_win"]
     duration = match["duration"]
-    # groups matches by duration below 30 minutes, below 45 minutes or longer
+    # groups matches by duration below 30 minutes, below 45 minutes or
+    # longer
     stage = (
         None
         if duration is None
@@ -84,8 +87,10 @@ def add_match(stats: dict[str, Any], match: dict[str, Any]) -> None:
         for hero in team:
             # creates the counters if this hero has not been seen yet
             # positions 0 and 1 store total games and wins
-            # positions 2 to 7 store games and wins for each duration group
-            # positions 8 to 13 store totals and counts for gpm, gold_10 and lh_10
+            # positions 2 to 7 store games and wins for each duration
+            # group
+            # positions 8 to 13 store totals and counts for gpm, gold_10
+            # and lh_10
             profile = stats["heroes"].setdefault(str(hero), [0.0] * 14)
             profile[0] += 1
             profile[1] += result
@@ -135,9 +140,11 @@ def pair_values(stats, candidate, others, allied):
         reference = candidate_rate
         if allied:
             profile = stats["heroes"].get(str(hero), [0.0] * 14)
-            # ally results use the average of both heroes' usual win rates
+            # ally results use the average of both heroes' usual win
+            # rates
             reference = (reference + win_rate(profile[1], profile[0], prior)) / 2
-        # shrinks pair effects with little history and uses zero for unseen pairs
+        # shrinks pair effects with little history and uses zero for
+        # unseen pairs
         delta = (wins / games - reference) * reliability(games, prior) if games else 0.0
         deltas.append(delta)
         # compresses large game counts while keeping zero games as zero
@@ -145,7 +152,8 @@ def pair_values(stats, candidate, others, allied):
         support.append(reliability(games, prior))
     if not others:
         return [0.0] * 4
-    # includes the strongest ally effect or the weakest enemy matchup effect
+    # includes the strongest ally effect or the weakest enemy matchup
+    # effect
     return [
         sum(deltas) / len(deltas),
         max(deltas) if allied else min(deltas),
@@ -191,7 +199,8 @@ def features_for_rows(rows, stats):
 # loads complete drafts and stats for training matches only
 def load_training_matches(data_dir, train_rows, validation_cutoff):
     allowed = {row["match_id"]: int(row["start_time"]) for row in train_rows}
-    # prevents validation or test results from entering the historical source
+    # prevents validation or test results from entering the historical
+    # source
     if any(time >= validation_cutoff for time in allowed.values()):
         raise ValueError("historical source contains a validation/test match")
     matches = {}
@@ -281,7 +290,8 @@ def selected_fields(remove=None):
     return [field for field in FEATURE_FIELDS if field not in omitted]
 
 
-# saves historical stats and training averages needed to scale the selected inputs
+# saves historical stats and training averages needed to scale the
+# selected inputs
 def feature_bundle(stats, train_features, fields):
     indices = [FEATURE_FIELDS.index(field) for field in fields]
     # selects all rows but only the requested columns
@@ -293,7 +303,8 @@ def feature_bundle(stats, train_features, fields):
     return {"stats": stats, "fields": fields, "mean": mean.tolist(), "scale": scale.tolist()}
 
 
-# scales inputs using the averages and standard deviations saved during training
+# scales inputs using the averages and standard deviations saved during
+# training
 def normalize(values, bundle):
     import numpy as np
 

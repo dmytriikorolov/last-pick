@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # checks how carry rankings change between test drafts
-# I added this file to just check if the model changes it opinion when we change allies and enemies
+# I added this file to just check if the model changes it opinion when
+# we change allies and enemies
 import csv
 import json
 from itertools import combinations
@@ -49,7 +50,8 @@ def sample_contexts(test):
     return first_by_shape + [row for row in spread if row not in first_by_shape]
 
 
-# compares candidate rankings between drafts and shows example recommendations
+# compares candidate rankings between drafts and shows example
+# recommendations
 def rankings_report(model, hero_ids, pool, contexts):
     changed = 0
     correlations = []
@@ -57,7 +59,8 @@ def rankings_report(model, hero_ids, pool, contexts):
     for left, right in combinations(contexts, 2):
         la, le = visible(left)
         ra, re = visible(right)
-        # uses the same candidates for both drafts and removes heroes picked in either
+        # uses the same candidates for both drafts and removes heroes
+        # picked in either
         blocked = set(la + le + ra + re)
         candidates = [hero for hero in pool if hero not in blocked]
         if len(candidates) < 3:
@@ -67,7 +70,8 @@ def rankings_report(model, hero_ids, pool, contexts):
         # counts pairs where the highest ranked hero changes
         changed += left_ranks[0][0] != right_ranks[0][0]
         positions = {hero: i for i, (hero, _) in enumerate(left_ranks)}
-        # spearman compares ranking order with 1 meaning identical and -1 reversed
+        # spearman compares ranking order with 1 meaning identical and
+        # -1 reversed
         correlations.append(
             float(
                 spearmanr(
@@ -76,7 +80,8 @@ def rankings_report(model, hero_ids, pool, contexts):
             )
         )
     examples = []
-    # excludes every hero visible in the first three drafts for a shared candidate pool
+    # excludes every hero visible in the first three drafts for a shared
+    # candidate pool
     common_visible = {hero for row in contexts[:3] for group in visible(row) for hero in group}
     common_candidates = [hero for hero in pool if hero not in common_visible]
     for row in contexts[:3]:
@@ -101,12 +106,14 @@ def rankings_report(model, hero_ids, pool, contexts):
     }
 
 
-# loads the model and test drafts and prints ranking and replacement checks
+# loads the model and test drafts and prints ranking and replacement
+# checks
 def main():
     model, hero_ids, pool = load_model(DEFAULT_MODEL)
     rows = load_rows(ROOT / "data/processed/training_examples.csv")
     _, test, _ = split_rows(rows)
-    # removes examples that the quality check excluded from training and evaluation
+    # removes examples that the quality check excluded from training and
+    # evaluation
     with (ROOT / "data/processed/training_quality.csv").open(newline="") as source:
         excluded = {
             (row["match_id"], row["side"])
@@ -118,7 +125,8 @@ def main():
     report = rankings_report(model, hero_ids, pool, contexts)
     first = contexts[0]
     allies, enemies = visible(first)
-    # picks an available candidate and two replacement heroes without duplicates
+    # picks an available candidate and two replacement heroes without
+    # duplicates
     candidate = next(hero for hero in pool if hero not in set(allies + enemies))
     alternative_ally = next(
         hero for hero in hero_ids if hero not in set(allies + enemies + [candidate])
@@ -128,7 +136,8 @@ def main():
         for hero in hero_ids
         if hero not in set(allies + enemies + [candidate, alternative_ally])
     )
-    # scores the same candidate before and after replacing one visible hero
+    # scores the same candidate before and after replacing one visible
+    # hero
     base = score_candidates(model, hero_ids, [candidate], allies, enemies)[0][1]
     ally_changed = score_candidates(
         model, hero_ids, [candidate], allies[:-1] + [alternative_ally], enemies
@@ -136,7 +145,8 @@ def main():
     enemy_changed = score_candidates(
         model, hero_ids, [candidate], allies, enemies[:-1] + [alternative_enemy]
     )[0][1]
-    # saves the replaced hero names and resulting scores alongside the base score
+    # saves the replaced hero names and resulting scores alongside the
+    # base score
     report["interaction_check"] = {
         "candidate": hero_id_to_name(candidate),
         "base_score": round(base, 4),

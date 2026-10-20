@@ -11,7 +11,8 @@ data_dir = project_root() / "data"
 default_input_dir = data_dir / "raw" / "opendota" / "matches"
 default_output_path = data_dir / "processed" / "drafts.csv"
 
-# build csv header: match metadata + 10 successful picks and extra attempts
+# build csv header: match metadata + 10 successful picks and extra
+# attempts
 csv_columns = ["match_id", "start_time", "patch", "radiant_win", "extra_pick_events"]
 for i in range(10):
     csv_columns.append(f"pick_{i}_order")
@@ -50,12 +51,14 @@ def validate_match(match: dict) -> tuple[bool, str, dict | None]:
     if not isinstance(picks_bans, list):
         return False, "missing picks_bans", None
 
-    # include pick attempts that may not appear in the final played lineup
+    # include pick attempts that may not appear in the final played
+    # lineup
     picks = [p for p in picks_bans if isinstance(p, dict) and p.get("is_pick") is True]
     if len(picks) < 10:
         return False, "incomplete_final_picks", None
 
-    # take care of order cause we need to locate extra attempts during draft phase
+    # take care of order cause we need to locate extra attempts during
+    # draft phase
     orders = [p.get("order") for p in picks]
     if any(not isinstance(o, int) or isinstance(o, bool) for o in orders):
         return False, "invalid_pick_order", None

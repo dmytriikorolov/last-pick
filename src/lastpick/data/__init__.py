@@ -1,1 +1,1 @@
-"""Source-independent domain data and validation."""
+"""Source-independent domain data and validation"""

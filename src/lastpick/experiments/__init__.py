@@ -1,1 +1,2 @@
-# observational v2 benchmarks; experimental artifacts never promote production models
+# Compare models on observed match outcomes
+# Keep experimental artifacts separate from production models

@@ -26,11 +26,13 @@ def static_hero_features(hero_ids, path=None):
         path = project_root() / "data/constants/heroes.csv"
     with path.open(newline="", encoding="utf-8") as source:
         rows = {int(row["hero_id"]): row for row in csv.DictReader(source)}
-    # reserves row zero for missing picks and 14 columns for hero details
+    # reserves row zero for missing picks and 14 columns for hero
+    # details
     features = torch.zeros(len(hero_ids) + 1, 14)
     for index, hero_id in enumerate(hero_ids, 1):
         row = rows[hero_id]
-        # marks the matching attribute and attack type with 1 and the others with 0
+        # marks the matching attribute and attack type with 1 and the
+        # others with 0
         features[index] = torch.tensor(
             [float(row["primary_attr"] == attr) for attr in ATTRS]
             + [float(row["attack_type"] == attack) for attack in ATTACKS]
@@ -41,7 +43,8 @@ def static_hero_features(hero_ids, path=None):
 
 # averages hero vectors while ignoring empty pick slots
 def masked_mean(values, indices):
-    # adds a dimension so the mask applies to every number in each hero vector
+    # adds a dimension so the mask applies to every number in each hero
+    # vector
     mask = (indices != 0).unsqueeze(-1)
     # divides by at least one so an empty group returns zeros
     return (values * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
@@ -49,21 +52,25 @@ def masked_mean(values, indices):
 
 # learns a carry score from the candidate and visible draft
 class CarryModel(nn.Module):
-    # creates hero vectors and the layers that turn draft inputs into a score
+    # creates hero vectors and the layers that turn draft inputs into a
+    # score
     def __init__(
         self, hero_ids, use_static=False, embedding_dim=16, historical_dim=0, hidden_sizes=(64, 32)
     ):
         super().__init__()
         self.use_static = use_static
         self.historical_dim = historical_dim
-        # learns a vector for each hero and keeps empty slot zero as a zero vector
+        # learns a vector for each hero and keeps empty slot zero as a
+        # zero vector
         self.embedding = nn.Embedding(len(hero_ids) + 1, embedding_dim, padding_idx=0)
         # saves fixed hero details with the model without training them
         self.register_buffer("hero_features", static_hero_features(hero_ids))
-        # uses five learned vectors and optionally three groups of 14 fixed details
+        # uses five learned vectors and optionally three groups of 14
+        # fixed details
         input_size = embedding_dim * 5 + (42 if use_static else 0) + historical_dim
         layers = []
-        # each hidden layer mixes the inputs and applies relu to its output
+        # each hidden layer mixes the inputs and applies relu to its
+        # output
         for size in hidden_sizes:
             layers.extend([nn.Linear(input_size, size), nn.ReLU()])
             input_size = size
@@ -71,7 +78,8 @@ class CarryModel(nn.Module):
         layers.append(nn.Linear(input_size, 1))
         self.network = nn.Sequential(*layers)
 
-    # combines hero vectors and candidate interactions into one draft vector
+    # combines hero vectors and candidate interactions into one draft
+    # vector
     def representations(self, candidate, allies, enemies):
         carry = self.embedding(candidate)
         ally = self.embedding(allies)
@@ -85,7 +93,8 @@ class CarryModel(nn.Module):
             masked_mean(carry.unsqueeze(1) * ally, allies),
             masked_mean(carry.unsqueeze(1) * enemy, enemies),
         ]
-        # optionally adds fixed details for the candidate and both visible groups
+        # optionally adds fixed details for the candidate and both
+        # visible groups
         if self.use_static:
             parts.extend(
                 [
@@ -97,14 +106,16 @@ class CarryModel(nn.Module):
         # joins the inputs into columns while keeping one row per draft
         return torch.cat(parts, dim=1)
 
-    # calculates raw scores from draft inputs and optional historical stats
+    # calculates raw scores from draft inputs and optional historical
+    # stats
     def forward(self, candidate, allies, enemies, historical=None):
         values = self.representations(candidate, allies, enemies)
         if self.historical_dim:
             if historical is None or historical.shape[1] != self.historical_dim:
                 raise ValueError("historical feature vector missing or wrong width")
             values = torch.cat((values, historical), dim=1)
-        # removes the extra output dimension and leaves probability conversion to the caller
+        # removes the extra output dimension and leaves probability
+        # conversion to the caller
         return self.network(values).squeeze(1)
 
 
@@ -117,7 +128,8 @@ def encode_draft(candidate_id, ally_ids, enemy_ids, hero_to_index):
     # a hero cannot appear more than once in the same draft
     if len(set(visible)) != len(visible):
         raise ValueError("candidate and visible heroes must be unique")
-    # both hero groups always have four slots even when fewer picks are visible
+    # both hero groups always have four slots even when fewer picks are
+    # visible
     try:
         return (
             hero_to_index[candidate_id],

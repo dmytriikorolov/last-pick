@@ -1,4 +1,4 @@
-"""Compatibility CLI for the unified collector; choose discovery in TOML."""
+"""Run the shared match collector Choose the discovery method in TOML"""
 
 if __package__:
     from . import _bootstrap as _bootstrap

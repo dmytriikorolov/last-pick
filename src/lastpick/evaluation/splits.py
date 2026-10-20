@@ -1,4 +1,7 @@
-"""Chronological splits keep matches and equal timestamps together."""
+"""Split matches in time order Keep both teams and equal timestamps
+in the
+same partition
+"""
 
 from dataclasses import dataclass
 

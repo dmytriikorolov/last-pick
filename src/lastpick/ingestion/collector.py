@@ -1,4 +1,6 @@
-"""Sequential durable collector. A page remains pending until every entry is resolved."""
+"""Sequential durable collector
+A page remains pending until every entry is resolved
+"""
 
 import json
 from collections import Counter
@@ -9,7 +11,7 @@ from typing import Any
 
 from lastpick.config import Config
 from lastpick.data.adapter import MatchAdapter
-from lastpick.data.io import atomic_json
+from lastpick.data.io import atomic_gzip, atomic_json, raw_paths, read_bytes
 from lastpick.data.opendota import OpenDotaAdapter
 from lastpick.data.schemas import Rejection
 from lastpick.data.validation import validate_filters, validate_integrity
@@ -51,7 +53,8 @@ class Collector:
         self.directory = root / config.paths.ingestion
         self.state_path = self.directory / "state.json"
         if self.state_path.exists():
-            # Corrupted state fails loudly; never silently reset budgets/cursors.
+            # Corrupted state fails loudly
+            # never silently reset budgets/cursors
             self.state = CrawlState(**json.loads(self.state_path.read_text()))
         else:
             self.state = CrawlState(config.source)
@@ -95,6 +98,8 @@ class Collector:
         assert self.source is not None
         match_id = entry["match_id"]
         path = self.raw_dir / f"{match_id}.json"
+        if not path.exists():
+            path = path.with_suffix(".json.gz")
         metadata_path = self.directory / "metadata" / f"{match_id}.json"
         previous: dict[str, Any] = {}
         if metadata_path.exists():
@@ -111,7 +116,7 @@ class Collector:
         atomic_json(metadata_path, {"source": self.source.name, "discovery": merged})
         if path.exists():
             try:
-                cached = json.loads(path.read_text())
+                cached = json.loads(read_bytes(path))
             except (OSError, ValueError):
                 raise InvalidPayload("invalid_existing_cache") from None
             if self.adapter.identifier(cached) != match_id:
@@ -121,8 +126,11 @@ class Collector:
         if self.adapter.identifier(payload) != match_id:
             atomic_json(self.directory / "invalid_payloads" / f"{match_id}.json", payload)
             raise InvalidPayload("invalid_detail_payload")
-        # Store validly identified raw responses even if dataset policy later rejects them.
-        atomic_json(path, payload)
+        # Store validly identified raw responses even if dataset policy
+        # later rejects them
+        atomic_gzip(
+            path, (json.dumps(payload, sort_keys=True, allow_nan=False, indent=2) + "\n").encode()
+        )
         return payload, True
 
     def run(self, max_pages: int | None = None) -> dict[str, int]:
@@ -130,7 +138,7 @@ class Collector:
         counts: Counter[str] = Counter()
         pages = 0
         self.raw_dir.mkdir(parents=True, exist_ok=True)
-        total = sum(1 for _ in self.raw_dir.glob("*.json"))
+        total = len(raw_paths(self.raw_dir))
         if not self.state.pending and self.state.page_cursor is not None:
             self.state.cursor = self.state.page_cursor
             self.state.page_cursor = None
@@ -151,7 +159,8 @@ class Collector:
                 pages += 1
                 if not page.entries:
                     break
-                # Provider-independent validation; don't trust third-party adapters blindly.
+                # Provider-independent validation
+                # don't trust third-party adapters blindly
                 if any(
                     type(e.get("match_id")) is not int or e["match_id"] <= 0 for e in page.entries
                 ):
@@ -183,7 +192,8 @@ class Collector:
                         validate_filters(match, self.config.filters)
                         reconstruct(match)
                     except (FetchFailure, BudgetExhausted) as error:
-                        # Keep failed entries pending. Restart retries before advancing cursor.
+                        # Keep failed entries pending
+                        # Restart retries before advancing cursor
                         counts["fetch_failure"] += 1
                         atomic_json(
                             self.directory / "last_failure.json",
@@ -210,7 +220,8 @@ class Collector:
                 self.state.pending.pop(0)
                 self.save()
                 if total >= self.config.ingestion.target_matches:
-                    # Remaining page is saved for a subsequent run with a larger target.
+                    # Remaining page is saved for a subsequent run with
+                    # a larger target
                     return dict(counts)
             self.state.cursor = self.state.page_cursor
             self.state.page_cursor = None

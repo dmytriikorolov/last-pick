@@ -1,4 +1,5 @@
-# stratified, deterministic manual role review; human labels stay blank
+# Sample team cases for independent role review
+# Keep sampling repeatable and leave human labels blank
 
 import csv
 import hashlib
@@ -74,7 +75,8 @@ def role_review_sample(
                     )
             strata[stratum].append((key, row))
             strata[stratum].sort(key=lambda pair: pair[0])
-            # retain enough candidates per cell for a balanced sample without holding the corpus
+            # retain enough candidates per cell for a balanced sample
+            # without holding the corpus
             strata[stratum] = strata[stratum][:per_cell]
     ordered = sorted(strata, key=lambda s: hashlib.sha256(f"{seed}:{s}".encode()).hexdigest())
     chosen = []
@@ -83,7 +85,8 @@ def role_review_sample(
         for stratum in ordered:
             if len(strata[stratum]) > depth:
                 reservoirs[stratum.split(":")[0]].append(strata[stratum][depth][1])
-    # equal primary quotas keep abstentions represented despite their smaller cell count
+    # equal primary quotas keep abstentions represented despite their
+    # smaller cell count
     buckets = ("high", "medium", "abstention")
     for i, bucket in enumerate(buckets):
         quota = size // 3 + int(i < size % 3)

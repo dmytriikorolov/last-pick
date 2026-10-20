@@ -1,4 +1,6 @@
-"""Deterministic general carry and dedicated 4v4 decision artifacts."""
+"""Build carry decisions and the separate 4v4 dataset Keep the output
+deterministic so builds can be compared
+"""
 
 import csv
 import hashlib
@@ -94,8 +96,10 @@ def decisions_for_match(
         unlocated = tuple(
             sorted({e.hero_id for e in draft.events if not e.is_pick and e.phase is None})
         )
-        # Simultaneous enemy choices are hidden: exact legal universe is unknowable
-        # unless a source supplies legality at decision time. Never exclude hidden heroes.
+        # Simultaneous enemy choices are hidden: exact legal universe is
+        # unknowable
+        # unless a source supplies legality at decision time
+        # Never exclude hidden heroes
         visible = allies + enemies + (role.hero_id,)
         if len(set(visible)) != len(visible) or set(visible) & set(bans):
             raise Rejection("invalid_visible_heroes")
@@ -159,7 +163,8 @@ def build_dataset(root: Path, config: Config, build_timestamp: str | None = None
     index = json.loads((source / "index.json").read_text())
     output = root / config.paths.output
     output.mkdir(parents=True, exist_ok=True)
-    # Every build is retained. latest.json is published only after its manifest is durable.
+    # Every build is retained
+    # latest.json is published only after its manifest is durable
     generation = Path(tempfile.mkdtemp(prefix="build-", dir=output))
     rejected: Counter[str] = Counter()
     decision_reasons: Counter[str] = Counter()

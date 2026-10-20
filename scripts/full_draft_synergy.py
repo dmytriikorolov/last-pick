@@ -1,4 +1,6 @@
-"""Compatibility entry point; reusable code lives in lastpick.legacy.full_draft_model."""
+"""Keep the original script command working
+The implementation lives in lastpick.legacy.full_draft_model
+"""
 
 if __package__:
     from . import _bootstrap as _bootstrap

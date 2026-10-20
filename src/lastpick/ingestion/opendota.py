@@ -1,4 +1,6 @@
-"""OpenDota transport and discovery policies; credentials only from environment."""
+"""Fetch match details and discover matches through OpenDota Read
+credentials from the environment
+"""
 
 import json
 import os
@@ -56,7 +58,8 @@ class OpenDotaSource:
             except HTTPError as error:
                 retry = error.code == 429 or 500 <= error.code < 600
                 if not retry or attempt + 1 == self.settings.retries:
-                    # Never serialize an exception URL containing an API key.
+                    # Never serialize an exception URL containing an API
+                    # key
                     raise FetchFailure(f"http_{error.code}") from None
                 retry_after = error.headers.get("Retry-After") if error.headers else None
                 delay = (
@@ -79,7 +82,8 @@ class OpenDotaSource:
                 "publicMatches", {"less_than_match_id": cursor} if cursor else {}
             )
         elif self.settings.discovery == "explorer":
-            # Configured numbers only; no SQL supplied by a remote source or user string.
+            # Configured numbers only
+            # no SQL supplied by a remote source or user string
             rank = self.filters.min_rank if self.filters.min_rank is not None else 0
             modes = ",".join(str(int(v)) for v in self.filters.game_modes)
             lobbies = ",".join(str(int(v)) for v in self.filters.lobby_types)

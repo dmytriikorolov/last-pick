@@ -1,4 +1,6 @@
-"""The only v2 module that understands raw OpenDota match fields."""
+"""Translate raw OpenDota fields into our match format Keep
+provider-specific parsing here
+"""
 
 import math
 from typing import Any
@@ -119,7 +121,8 @@ def normalize(raw: Any, discovery: dict[str, Any] | None = None) -> Match:
             raise Rejection("invalid_draft_event")
         if team not in (0, 1) and (e["is_pick"] or e.get("team") is not None):
             raise Rejection("invalid_event_team")
-        # No phase is invented for a ban: source ordering alone is insufficient in AP.
+        # No phase is invented for a ban: source ordering alone is
+        # insufficient in AP
         events.append(DraftEvent(order, team, hero, e["is_pick"]))
     metadata = discovery or {}
     rank = number(raw.get("avg_rank_tier"))

@@ -1,4 +1,7 @@
-"""A future provider supplies discovery pages and raw detail payloads."""
+"""Shared interface for discovering and downloading matches Other
+providers
+can supply their own pages and raw records
+"""
 
 from dataclasses import dataclass
 from typing import Any, Protocol

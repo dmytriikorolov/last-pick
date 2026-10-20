@@ -1,1 +1,1 @@
-"""LastPick evaluation APIs."""
+"""LastPick evaluation APIs"""

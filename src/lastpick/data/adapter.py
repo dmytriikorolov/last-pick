@@ -1,4 +1,7 @@
-"""Provider adapters translate source records; downstream stages know only Match."""
+"""Turn provider records into canonical matches Later stages only
+need the
+shared Match format
+"""
 
 from typing import Any, Protocol
 

@@ -1,1 +1,1 @@
-"""LastPick features APIs."""
+"""LastPick features APIs"""

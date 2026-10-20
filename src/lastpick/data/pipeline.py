@@ -1,4 +1,6 @@
-"""Normalize raw source data once; all v2 downstream stages read canonical records."""
+"""Normalize raw source data once
+all v2 downstream stages read canonical records
+"""
 
 import hashlib
 import json
@@ -8,7 +10,7 @@ from typing import Any
 
 from lastpick.config import Config
 from lastpick.data.adapter import MatchAdapter
-from lastpick.data.io import atomic_json
+from lastpick.data.io import atomic_json, raw_paths, read_bytes
 from lastpick.data.opendota import OpenDotaAdapter
 from lastpick.data.schemas import SCHEMA_VERSION, Rejection, record
 from lastpick.data.validation import validate_integrity
@@ -33,11 +35,11 @@ def normalize_directory(
     seen: set[int] = set()
     digest = hashlib.sha256()
     count = 0
-    for path in sorted(raw_dir.glob("*.json")):
+    for path in raw_paths(raw_dir):
         count += 1
         try:
-            content = path.read_bytes()
-            digest.update(path.name.encode() + hashlib.sha256(content).digest())
+            content = read_bytes(path)
+            digest.update(path.name.removesuffix(".gz").encode() + hashlib.sha256(content).digest())
             payload = json.loads(content)
             discovery = None
             identifier = adapter.identifier(payload)
@@ -54,7 +56,7 @@ def normalize_directory(
             seen.add(match.match_id)
             target = output / f"{match.match_id}.json"
             value = record(match)
-            # Avoid rewriting unchanged canonical data on rerun.
+            # Avoid rewriting unchanged canonical data on rerun
             expected = json.dumps(value, sort_keys=True, allow_nan=False, indent=2) + "\n"
             if not target.exists() or target.read_text() != expected:
                 atomic_json(target, value)
@@ -78,6 +80,7 @@ def normalize_directory(
         "files": sorted(accepted),
     }
     atomic_json(output / "normalization_rejections.json", rejections)
-    # Authoritative input index, committed after every accepted record is durable.
+    # Authoritative input index, committed after every accepted record
+    # is durable
     atomic_json(output / "index.json", report)
     return report

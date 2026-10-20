@@ -12,7 +12,8 @@ def test_carry_and_winner_labels():
         assert valid and len(rows) == 2
         radiant = next(row for row in rows if row["side"] == "radiant")
         dire = next(row for row in rows if row["side"] == "dire")
-        # farm identifies tiny as the carry even though lina can also be a carry
+        # farm identifies tiny as the carry even though lina can also be
+        # a carry
         assert radiant["candidate_hero_id"] == 19
         assert radiant["win"] == int(winner)
         assert dire["win"] == int(not winner)

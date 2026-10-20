@@ -1,7 +1,6 @@
-"""One statistics engine for v2, with completed-match availability cutoffs.
-
-Aggregate exports and model features must come from an explicit snapshot.
-Current match telemetry is used to construct labels, never current draft inputs.
+"""Build history using only matches completed before the cutoff Use
+explicit snapshots for exports and model features Current-match
+telemetry belongs to labels, never draft inputs
 """
 
 import json
@@ -139,10 +138,14 @@ class Snapshot:
     source_match_ids: tuple[int, ...]
 
     def model_features(self, candidate: int, allies: list[int], enemies: list[int]) -> list[float]:
-        """Explicit compatibility selection: v1's 20 numeric inputs with support.
+        """Explicit compatibility selection: v1's 20 numeric inputs
+        with
+        support
 
-        Missing numeric means use the v1 neutral default here only; rich extras
-        retain None and independent sample counts for future model selection.
+        Missing numeric means use the v1 neutral default here only
+        rich extras retain None and independent sample counts for
+        future
+        model selection
         """
         return feature_vector(self.stats, candidate, allies, enemies)
 
@@ -194,7 +197,8 @@ class AsOfHistory:
     def snapshot(self, as_of: int) -> Snapshot:
         self.advance(as_of)
         latest = self.matches[self.position - 1][0] if self.position else None
-        # A returned snapshot must never change when a future query updates the engine.
+        # A returned snapshot must never change when a future query
+        # updates the engine
         return Snapshot(
             as_of,
             latest,
@@ -230,11 +234,16 @@ def build_feature_rows(
     spec: FeatureSpec | None = None,
     settings: FeatureSettings | None = None,
 ) -> list[FeatureRow]:
-    """Training queries use individual decision time; validation/test freeze history.
+    """Training queries use individual decision time
+    validation/test freeze history
 
-    The training source allowlist is required even for frozen evaluation. Numeric
-    selection reads only draft heroes and past statistics, never role evidence,
-    current outcomes, current telemetry, or unlocated bans.
+    The training source allowlist is required even for frozen
+    evaluation
+    Numeric selection reads only draft heroes and past statistics,
+    never
+    role evidence, current outcomes, current telemetry, or
+    unlocated
+    bans
     """
     if any(d.start_time is None for d in decisions):
         raise Rejection("missing_decision_time")

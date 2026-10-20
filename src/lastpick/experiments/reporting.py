@@ -1,4 +1,5 @@
-# generate tracked benchmark tables and research notes from completed runs
+# Turn completed benchmark runs into tables and research notes
+# Write the summaries tracked with the project
 
 import csv
 import json
@@ -35,7 +36,8 @@ def export_report(
         raise ValueError("audit and experiment dataset differ")
     output.mkdir(parents=True, exist_ok=True)
     (output / "comparison.csv").write_text((run / "comparison.csv").read_text())
-    # detailed predictions and models remain local; retain small, reviewable summaries
+    # detailed predictions and models remain local
+    # retain small, reviewable summaries
     compact_audit = dict(audit)
     compact_audit["distributions"] = {
         k: v for k, v in audit["distributions"].items() if k != "start_time"

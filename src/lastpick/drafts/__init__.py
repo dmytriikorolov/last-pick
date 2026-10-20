@@ -1,1 +1,1 @@
-"""Final-pick recovery and simultaneous-phase visibility."""
+"""Final-pick recovery and simultaneous-phase visibility"""

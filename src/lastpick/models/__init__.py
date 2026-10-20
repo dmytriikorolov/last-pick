@@ -1,1 +1,1 @@
-"""LastPick models APIs."""
+"""LastPick models APIs"""

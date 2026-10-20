@@ -1,4 +1,4 @@
-"""Allow historical script commands before editable installation."""
+"""Allow historical script commands before editable installation"""
 
 import sys
 from pathlib import Path

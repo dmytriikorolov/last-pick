@@ -1,4 +1,7 @@
-"""Canonical integrity and selection policies, separate from download failures."""
+"""Check match integrity and apply dataset filters Keep these
+rejections
+separate from download failures
+"""
 
 import math
 

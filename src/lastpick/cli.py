@@ -1,4 +1,7 @@
-"""Small orchestration commands; package modules provide the reusable APIs."""
+"""Run the project commands from one place The reusable code lives in
+the
+package modules
+"""
 
 import argparse
 import json
@@ -181,7 +184,10 @@ if __name__ == "__main__":
 
 
 def ingest_main(argv: list[str] | None = None) -> None:
-    """Historical collector entry points accept global options after the script name."""
+    """Historical collector entry points accept global options after
+    the
+    script name
+    """
     parser = argparse.ArgumentParser(description="Unified OpenDota collector")
     parser.add_argument("--root", type=Path, default=project_root())
     parser.add_argument("--config", type=Path)

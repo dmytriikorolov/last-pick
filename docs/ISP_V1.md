@@ -21,6 +21,15 @@ five training blocks use earlier training matches, and validation/test use a
 frozen training history. These files and raw data are gitignored: the tag alone
 does not reproduce the dataset without the saved local data/source snapshots.
 
+Raw caches may now be stored losslessly as `.json.gz`. The original tag and
+legacy CSV extractors require `.json`: expand them before reproducing those steps:
+
+```sh
+find data/raw/opendota/matches -name '*.json.gz' -exec gunzip {} +
+```
+
+Reserve enough space for the expanded dataset. V2 reads both formats directly.
+
 ## Saved model and reference results
 
 `models/final_carry_recommender.pt` is an embedding MLP with candidate/visible

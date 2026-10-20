@@ -1,4 +1,5 @@
-# validated experiment contract, with label evidence separated from draft inputs
+# Load and validate the data used in experiments
+# Keep label evidence separate from what was visible in the draft
 
 import hashlib
 import json
@@ -49,7 +50,8 @@ class DraftInput:
 
 
 def draft_input(decision: DraftDecision, candidate: int | None = None) -> DraftInput:
-    # deliberate allowlist: no outcome, role evidence, telemetry or unlocated bans
+    # deliberate allowlist: no outcome, role evidence, telemetry or
+    # unlocated bans
     return DraftInput(
         candidate if candidate is not None else decision.chosen_hero,
         tuple(sorted(decision.visible_allies)),

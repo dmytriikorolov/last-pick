@@ -1,4 +1,5 @@
-# trains one carry neural network with hero details and historical features
+# trains one carry neural network with hero details and historical
+# features
 import csv
 import json
 import time
@@ -78,7 +79,8 @@ def tensors(rows, hero_to_index):
     )
 
 
-# calculates prediction loss while giving questionable examples less weight
+# calculates prediction loss while giving questionable examples less
+# weight
 def weighted_loss(logits, labels, weights):
     if (
         weights.shape != labels.shape
@@ -115,10 +117,12 @@ def metrics(labels, scores):
     }
 
 
-# trains one neural network and keeps the epoch with the best validation loss
+# trains one neural network and keeps the epoch with the best validation
+# loss
 def train_model(train_data, validation_data, train_history, validation_history, hero_ids, bundle):
     torch.manual_seed(CONFIG.seed)
-    # includes hero details, draft interactions and every historical feature
+    # includes hero details, draft interactions and every historical
+    # feature
     model = CarryModel(hero_ids, use_static=True, historical_dim=len(FEATURE_FIELDS))
     model.historical_bundle = bundle
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
@@ -193,7 +197,8 @@ def main():
     validation_data = tensors(validation_rows, mapping)
     test_data = tensors(test_rows, mapping)
 
-    # historical training inputs use earlier matches rather than their own results
+    # historical training inputs use earlier matches rather than their
+    # own results
     print("building historical inputs", flush=True)
     matches = load_training_matches(DATA, train_rows, validation_cutoff)
     train_values, stats, blocks = training_features(

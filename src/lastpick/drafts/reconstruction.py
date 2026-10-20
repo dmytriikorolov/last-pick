@@ -1,4 +1,7 @@
-"""Preserve ISP recovery rules while retaining the complete event stream."""
+"""Recover final picks using the original ISP rules Keep bans and
+failed
+attempts in the event stream
+"""
 
 from collections import Counter
 from dataclasses import replace
@@ -16,7 +19,8 @@ def reconstruct(match: Match) -> Draft:
         raise Rejection("ambiguous_event_orders")
     if any(e.order < 0 or e.hero_id <= 0 or (e.is_pick and e.team not in (0, 1)) for e in events):
         raise Rejection("invalid_draft_event")
-    # Source gaps imply missing events. Interleaved bans may occupy pick-order gaps.
+    # Source gaps imply missing events
+    # Interleaved bans may occupy pick-order gaps
     if {e.order for e in events} != set(range(len(events))):
         raise Rejection("incomplete_event_orders")
     final_teams = {p.hero_id: p.side for p in match.players}

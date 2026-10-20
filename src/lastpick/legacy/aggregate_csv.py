@@ -74,7 +74,8 @@ def add_pair(pairs, a, b, won):
     pairs[key][1] += won
 
 
-# calculates win rates for heroes playing together and against each other
+# calculates win rates for heroes playing together and against each
+# other
 def pair_rows(drafts):
     hero_results = defaultdict(lambda: [0, 0])
     allies = defaultdict(lambda: [0, 0])
@@ -138,7 +139,8 @@ def build(input_dir, output_dir):
     for row in rows(input_dir / "match_features.csv"):
         matches[row["match_id"]] = row
 
-    # gives each new hero its own counters for totals and available values
+    # gives each new hero its own counters for totals and available
+    # values
     profiles = defaultdict(
         lambda: {
             "games": 0,
@@ -150,7 +152,8 @@ def build(input_dir, output_dir):
     )
     log_coverage = Counter()
     lane_groups = defaultdict(list)
-    # stores games, wins, combined gold, xp and last hits for each lane pair
+    # stores games, wins, combined gold, xp and last hits for each lane
+    # pair
     lane_pairs = defaultdict(lambda: [0, 0, 0.0, 0.0, 0.0])
 
     # saves the lane pairs and their farm for one match
@@ -171,7 +174,8 @@ def build(input_dir, output_dir):
     for row in rows(input_dir / "player_match_features.csv"):
         if row["match_id"] != current_match_id:
             if current_match_id is not None:
-                # finishes the previous match before collecting the next one
+                # finishes the previous match before collecting the next
+                # one
                 flush_lanes(current_match_id)
                 lane_groups.clear()
             current_match_id = row["match_id"]
@@ -194,13 +198,15 @@ def build(input_dir, output_dir):
                     data["stages"][stage][1] += won
                     break
 
-        # counts each available value separately so missing values do not become zeros
+        # counts each available value separately so missing values do
+        # not become zeros
         for field in METRICS + ["aghanims_scepter", "aghanims_shard"]:
             value = number(row[field])
             if value is not None:
                 data["totals"][field] += value
                 data["counts"][field] += 1
-        # only collects safelane and offlane players with complete 10 minute farm data
+        # only collects safelane and offlane players with complete 10
+        # minute farm data
         lane = row["lane_role"]
         if lane in ("1", "3") and all(row[f"{field}_10"] != "" for field in ("gold", "xp", "lh")):
             lane_groups[row["side"], lane].append(row)
@@ -232,7 +238,8 @@ def build(input_dir, output_dir):
         "purchase_log_games",
     ]
 
-    # stores purchase counts, total times and all first purchase times for the median
+    # stores purchase counts, total times and all first purchase times
+    # for the median
     item_stats = defaultdict(lambda: [0, 0.0, array("i")])
     aghs_times = defaultdict(lambda: array("i"))
     shard_times = defaultdict(lambda: array("i"))
@@ -261,7 +268,8 @@ def build(input_dir, output_dir):
         if first_aghs:
             aghs_times[hero].append(min(first_aghs))
 
-    # expects purchases from the same player and match to be grouped together
+    # expects purchases from the same player and match to be grouped
+    # together
     for row in rows(input_dir / "item_purchase_events.csv"):
         player = (row["match_id"], row["player_slot"], int(row["hero_id"]))
         if player != current_player:
@@ -271,7 +279,8 @@ def build(input_dir, output_dir):
         key = row["item_key"]
         time = number(row["purchase_time"])
 
-        # keeps only the earliest known purchase of each item for this player
+        # keeps only the earliest known purchase of each item for this
+        # player
         if key not in first_times or (
             time is not None and (first_times[key][1] is None or time < first_times[key][1])
         ):
@@ -356,7 +365,8 @@ def build(input_dir, output_dir):
                 statistics.median(times),
             )
         )
-    # includes parsed games without purchases when calculating purchase rates
+    # includes parsed games without purchases when calculating purchase
+    # rates
     patch_coverage = Counter()
     for row in rows(input_dir / "player_match_features.csv"):
         match = matches[row["match_id"]]
@@ -427,7 +437,8 @@ def build(input_dir, output_dir):
         lane_rows,
     )
 
-    # stores upgrade count, total upgrade order and number of player games
+    # stores upgrade count, total upgrade order and number of player
+    # games
     abilities = defaultdict(lambda: [0, 0, 0])
     last_ability_game = {}
     for row in rows(input_dir / "ability_upgrade_events.csv"):
@@ -436,7 +447,8 @@ def build(input_dir, output_dir):
         entry[0] += 1
         entry[1] += int(row["upgrade_order"])
         game = (row["match_id"], row["player_slot"])
-        # counts a player game once even when the same ability is upgraded several times
+        # counts a player game once even when the same ability is
+        # upgraded several times
         if last_ability_game.get((hero, ability)) != game:
             entry[2] += 1
             last_ability_game[hero, ability] = game
@@ -457,7 +469,8 @@ def build(input_dir, output_dir):
         ability_rows,
     )
 
-    # counts objective events without building a separate statistics table
+    # counts objective events without building a separate statistics
+    # table
     objective_count = sum(1 for _ in rows(input_dir / "objective_events.csv"))
     return {
         "heroes": len(profile_rows),
