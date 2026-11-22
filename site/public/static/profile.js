@@ -504,7 +504,8 @@
     }, 9000);
     status.textContent = 'Loading match history…';
     try {
-      const params = new URLSearchParams({ limit: String(MATCH_LIMIT), date: '185', sort: 'start_time' });
+      // OpenDota's default history backend can time out on public profiles.
+      const params = new URLSearchParams({ limit: String(MATCH_LIMIT), date: '185', sort: 'start_time', clickhouse: '1' });
       const response = await fetch(`https://api.opendota.com/api/players/${account}/matches?${params}`, {
         signal: controller.signal,
         credentials: 'omit',
