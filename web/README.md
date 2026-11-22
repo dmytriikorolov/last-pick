@@ -1,4 +1,4 @@
-# ISP carry demo
+# LastPick website
 
 From the repository root, use a Python environment with the existing PyTorch dependencies:
 
@@ -19,13 +19,20 @@ python -m scripts.download_hero_portraits
 The downloader uses image paths from the local OpenDota snapshot and skips existing
 files. Once cached, the page and recommendations need no internet access.
 
-Select YOUR TEAM or ENEMY TEAM, then left click portraits to fill four slots each.
-Click a filled slot to remove it. Right click a portrait to toggle its ban; banning
-a selected hero removes it from the draft. Clear draft resets picks and bans.
-Example draft fills a sample 4v4. Search filters the full attribute-grouped roster.
-The recommendation button enables only for 4v4; scores are estimated probabilities,
-not guarantees. If bans leave fewer than five candidates, the API returns those
-remaining (or an empty list).
+## Draft and My Dota
+
+Choose a team and fill four slots. Use the Pick/Ban switch or right-click a hero
+to manage bans. Save and reopen named drafts, or copy a link that shares picks
+and bans. Saved drafts and favorites stay in your browser.
+
+Open My Dota for a six-month calendar and recent matches. Try the example or
+load a public OpenDota account by ID or numeric Steam profile link. The profile
+makes one anonymous OpenDota request per load and caches the most recent
+account's results locally for 30 minutes. Favorites can limit the draft ranking
+to the carries you play.
+
+The recommendation button enables at 4v4 and ranks up to five available heroes
+from the ISP checkpoint. The real profile needs an internet connection.
 
 ```sh
 curl -X POST http://127.0.0.1:5000/api/recommend \
@@ -37,7 +44,8 @@ Response: `{"recommendations":[{"hero_id":48,"hero_name":"Luna","model_score":0.
 (example shape only; actual ranking and scores come from the checkpoint).
 Invalid input returns HTTP 400 with an `error` message. IDs must be integers known
 to the model. Both teams need exactly four unique heroes with no overlap or banned
-picks. Recommendations exclude all picks and bans using the checkpoint pool.
+picks. Recommendations exclude all picks and bans from the checkpoint pool.
+An optional `candidate_pool` array restricts the ranking to those IDs.
 
 Run integration tests against the actual final checkpoint and cached portraits:
 
@@ -67,9 +75,8 @@ python -m http.server 8000 --directory dist
 ```
 
 Open http://localhost:8000, choose Example draft, then RECOMMEND CARRY.
-Rebuilding locally does not publish a site. Backend tests use the tracked checkpoint;
-the repository does not currently include a browser/PyTorch numerical parity test.
-The Foundation smoke check exports the site and verifies its artifact structure.
+Rebuilding locally does not publish a site. The test suite compares the static
+model with Flask, including the optional carry pool, when Node.js is installed.
 
 See [Foundation v2](../docs/FOUNDATION_V2.md) for package/data commands. This UI
 continues to serve `final_carry_recommender.pt`; Foundation training writes separate

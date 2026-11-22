@@ -32,12 +32,14 @@ class OpenDotaSource:
         filters: Filters,
         consume_request: Callable[[], None],
         sleep: Callable[[float], None] = time.sleep,
+        *,
+        anonymous: bool = False,
     ) -> None:
         self.settings = settings
         self.filters = filters
         self.consume_request = consume_request
         self.sleep = sleep
-        self.api_key = os.environ.get("OPENDOTA_API_KEY", "")
+        self.api_key = "" if anonymous else os.environ.get("OPENDOTA_API_KEY", "")
 
     def request(self, route: str, params: dict[str, str | int] | None = None) -> Any:
         query = dict(params or {})

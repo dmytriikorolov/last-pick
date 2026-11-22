@@ -1,0 +1,15 @@
+.git/
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+/data/
+dist/
+/experiments/
+graphify-out/
+/models/
+reports/
+site/public/static/model.js
+site/public/static/app.js
+site/public/static/heroes/
+web/static/heroes/

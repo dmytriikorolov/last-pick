@@ -24,6 +24,9 @@ def main(argv: list[str] | None = None) -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     ingest = commands.add_parser("ingest")
     ingest.add_argument("--max-pages", type=int)
+    ingest.add_argument("--anonymous", action="store_true")
+    ingest.add_argument("--recent", action="store_true")
+    ingest.add_argument("--max-requests", type=int)
     commands.add_parser("normalize")
     commands.add_parser("dataset")
     history = commands.add_parser("history")
@@ -51,6 +54,10 @@ def main(argv: list[str] | None = None) -> None:
     )
     benchmark.add_argument("--max-nn-epochs", type=int, default=20)
     benchmark.add_argument("--output", type=Path, required=True)
+    rolling = commands.add_parser("rolling-benchmark")
+    rolling.add_argument("--build", type=Path)
+    rolling.add_argument("--output", type=Path, required=True)
+    rolling.add_argument("--include-final", action="store_true")
     evaluate = commands.add_parser("evaluate")
     evaluate.add_argument("--build", type=Path)
     evaluate.add_argument("--run", type=Path, required=True)
@@ -59,7 +66,8 @@ def main(argv: list[str] | None = None) -> None:
     review = commands.add_parser("role-review-sample")
     review.add_argument("--size", type=int, default=400)
     review.add_argument("--seed", type=int, default=42)
-    review.add_argument("--output", type=Path, default=Path("reports/role_review_sample.csv"))
+    review.add_argument("--output", type=Path)
+    review.add_argument("--pilot", action="store_true")
     report_command = commands.add_parser("benchmark-report")
     report_command.add_argument("--run", type=Path, required=True)
     report_command.add_argument("--holdout", type=Path)
@@ -76,9 +84,18 @@ def main(argv: list[str] | None = None) -> None:
     if args.command in {"ingest", "normalize"} and config.source != "opendota":
         raise ValueError("CLI currently provides only the OpenDota source/adapter")
     if args.command == "ingest":
-        collector = Collector(args.root, config)
+        collector = Collector(
+            args.root,
+            config,
+            recent=args.recent,
+            max_requests=args.max_requests
+            if args.max_requests is not None
+            else 50
+            if args.anonymous
+            else None,
+        )
         collector.source = OpenDotaSource(
-            config.ingestion, config.filters, collector.consume_request
+            config.ingestion, config.filters, collector.consume_request, anonymous=args.anonymous
         )
         print(json.dumps(collector.run(args.max_pages), indent=2))
     elif args.command == "normalize":
@@ -140,6 +157,17 @@ def main(argv: list[str] | None = None) -> None:
             args.max_nn_epochs,
             args.holdout_start,
         )
+    elif args.command == "rolling-benchmark":
+        from lastpick.experiments.data import resolve_build
+        from lastpick.experiments.rolling import rolling_benchmark
+
+        rolling_benchmark(
+            args.root,
+            resolve_build(args.root, args.build),
+            args.root / config.paths.normalized,
+            args.output,
+            args.include_final,
+        )
     elif args.command == "evaluate":
         from lastpick.experiments.benchmark import evaluate_run
         from lastpick.experiments.data import resolve_build
@@ -149,7 +177,17 @@ def main(argv: list[str] | None = None) -> None:
         )
         print(f"Evaluation: {args.output}")
     elif args.command == "role-review-sample":
-        from lastpick.experiments.review import role_review_sample
+        from lastpick.experiments.review import role_review_pilot, role_review_sample
+
+        if args.pilot:
+            output = args.output or args.root / "experiments/modeling-v2/role-review-pilot.csv"
+            print(
+                json.dumps(
+                    role_review_pilot(args.root / "reports/role_review_sample.csv", output),
+                    indent=2,
+                )
+            )
+            return
 
         result = role_review_sample(
             args.root / config.paths.normalized, args.output, config, args.size, args.seed
@@ -170,7 +208,7 @@ def main(argv: list[str] | None = None) -> None:
         export_report(
             args.run,
             args.audit,
-            args.output,
+            args.output or Path("reports/role_review_sample.csv"),
             args.document,
             args.holdout,
             args.reevaluation,
@@ -192,6 +230,9 @@ def ingest_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--root", type=Path, default=project_root())
     parser.add_argument("--config", type=Path)
     parser.add_argument("--max-pages", type=int)
+    parser.add_argument("--anonymous", action="store_true")
+    parser.add_argument("--recent", action="store_true")
+    parser.add_argument("--max-requests", type=int)
     args = parser.parse_args(argv)
     forwarded = ["--root", str(args.root)]
     if args.config:
@@ -199,4 +240,10 @@ def ingest_main(argv: list[str] | None = None) -> None:
     forwarded += ["ingest"]
     if args.max_pages is not None:
         forwarded += ["--max-pages", str(args.max_pages)]
+    if args.anonymous:
+        forwarded += ["--anonymous"]
+    if args.recent:
+        forwarded += ["--recent"]
+    if args.max_requests is not None:
+        forwarded += ["--max-requests", str(args.max_requests)]
     main(forwarded)

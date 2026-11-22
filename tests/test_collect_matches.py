@@ -209,3 +209,53 @@ def test_truncated_gzip_cache_is_reported_without_redownload(tmp_path):
     path.write_bytes(path.read_bytes()[:-8])
     assert collector.run()["invalid_payload"] == 1
     collector.source.fetch_match.assert_not_called()
+
+
+def test_recent_scan_resumes_with_separate_cursor_and_run_budget(tmp_path):
+    source = provider((124, 123))
+    first = Collector(tmp_path, Config(), source, recent=True, max_requests=1)
+
+    def fetch(match_id):
+        first.consume_request()
+        return payload(match_id)
+
+    source.fetch_match.side_effect = fetch
+    assert first.run(max_pages=1)["run_request_budget_exhausted"] == 1
+    assert first.state.pending == [{"match_id": 123}]
+    assert first.state.scan_head == 124 and first.state.recent_head is None
+    resumed = Collector(tmp_path, Config(), provider(), recent=True, max_requests=1)
+    resumed.run(max_pages=1)
+    assert resumed.state.recent_head == 124 and resumed.state.cursor is None
+    assert Collector(tmp_path, Config(), provider()).state.cursor is None
+    assert Collector(tmp_path, Config(), provider()).state.pending == []
+
+    next_source = provider((127, 126))
+    next_source.discover_matches.side_effect = [
+        DiscoveryPage(({"match_id": 127}, {"match_id": 126}), 126),
+        DiscoveryPage(({"match_id": 125}, {"match_id": 124}), 124),
+    ]
+    newer = Collector(tmp_path, Config(), next_source, recent=True)
+    newer.run(max_pages=1)
+    assert newer.state.cursor == 126 and newer.state.recent_head == 124
+    final = Collector(tmp_path, Config(), next_source, recent=True)
+    final.run(max_pages=1)
+    assert final.state.recent_head == 127 and final.state.cursor is None
+    assert [call.args[0] for call in next_source.fetch_match.call_args_list] == [127, 126, 125]
+
+
+def test_anonymous_source_ignores_environment_key(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENDOTA_API_KEY", "unused-secret")
+    collector = Collector(tmp_path, Config(), max_requests=1)
+    source = OpenDotaSource(
+        IngestionSettings(delay_seconds=0),
+        Config().filters,
+        collector.consume_request,
+        Mock(),
+        anonymous=True,
+    )
+    with patch("lastpick.ingestion.opendota.urlopen", return_value=io.StringIO("{}")) as network:
+        source.request("test")
+        with pytest.raises(BudgetExhausted, match="run_request_budget_exhausted"):
+            source.request("test")
+    network.assert_called_once()
+    assert network.call_args.args[0].full_url.endswith("/test")

@@ -75,12 +75,15 @@ def load_decisions(build: Path, verify: bool = True) -> list[DraftDecision]:
                 raise Rejection("dataset_digest_mismatch", name)
     rows = []
     seen: set[tuple[int, int]] = set()
+    start_times: dict[int, int] = {}
     with (build / "last_pick_decisions.jsonl").open() as stream:
         for line in stream:
             row = decision_from_record(json.loads(line))
             draft_input(row)
             if row.start_time is None:
                 raise Rejection("missing_decision_time")
+            if start_times.setdefault(row.match_id, row.start_time) != row.start_time:
+                raise Rejection("inconsistent_match_timestamp")
             key = (row.match_id, row.side)
             if key in seen:
                 raise Rejection("duplicate_experiment_decision")

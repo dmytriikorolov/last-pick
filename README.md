@@ -45,7 +45,7 @@ After finishing the ISP, I started revisiting parts of the implementation that m
 
 The current version includes changes to the project structure, match processing, role inference, and dataset generation. I've also been working on making evaluation more reproducible and avoiding information leakage from future matches.
 
-These changes are mostly to the underlying infrastructure. The web interface still uses the original ISP model, and I haven't trained a replacement model on the updated pipeline yet.
+The updated pipeline now has a benchmark for simple baselines, logistic regression, trees, and a small neural network. The web interface still uses the original ISP model.
 
 ## Running locally
 
@@ -77,6 +77,8 @@ More detailed notes on the implementation and experiments are available in the `
 
 - [Technical documentation](docs/DOCUMENTATION.md)
 - [Data pipeline and architecture](docs/FOUNDATION_V2.md)
+- [Modeling and evaluation results](docs/MODELING_V2.md)
+- [Repo review and next steps](docs/NEXT_STEPS.md)
 - [Original ISP experiment](docs/ISP_V1.md)
 
 New data and model artifacts are kept separate from the original ISP results. No replacement production model has been trained for Foundation v2.
@@ -103,9 +105,7 @@ find data/raw/opendota/matches -name '*.json.gz' -exec gunzip {} +
 
 ## What's next
 
-There are several things I'd like to explore further, particularly stronger statistical baselines, better matchup and synergy features, and accounting for changes between game patches.
-
-For now, the focus is on making experiments easier to run and compare before spending more time on model complexity.
+The next step is to check how well the existing models hold up over time. That means fixing the benchmark's match completion cutoffs and collecting more evenly across weeks and patches.
 
 ---
 

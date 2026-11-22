@@ -14,7 +14,7 @@ from lastpick.data.io import atomic_json
 from lastpick.data.schemas import Rejection, record
 from lastpick.evaluation.splits import temporal_split
 from lastpick.experiments.audit import audit_dataset
-from lastpick.experiments.benchmark import benchmark, evaluate_run
+from lastpick.experiments.benchmark import benchmark, completed_partition, evaluate_run
 from lastpick.experiments.data import (
     candidate_pool,
     dataset_identity,
@@ -34,7 +34,8 @@ from lastpick.experiments.metrics import (
 )
 from lastpick.experiments.models import NeuralModel, PriorModel, TabularModel
 from lastpick.experiments.reporting import export_report
-from lastpick.experiments.review import role_review_sample
+from lastpick.experiments.review import role_review_pilot, role_review_sample
+from lastpick.experiments.rolling import DAY, WEEK, rolling_benchmark
 
 
 def examples(count=30):
@@ -154,6 +155,22 @@ def test_history_frozen_and_completion_safe(tmp_path):
         )
 
 
+def test_label_cutoff_excludes_both_sides_and_unknown_duration(tmp_path):
+    matches, decisions = examples(4)
+    cutoff = 16_000
+    for match, duration in zip(matches, (5_999, 6_000, None, 1_001), strict=True):
+        atomic_json(
+            tmp_path / f"{match.match_id}.json",
+            record(replace(match, duration=duration)),
+        )
+    retained, exclusions = completed_partition(decisions, tmp_path, cutoff)
+    assert [(row.match_id, row.side) for row in retained] == [(100, 0), (100, 1)]
+    assert exclusions == {
+        "unfinished_at_cutoff": {"matches": 2, "rows": 4},
+        "unknown_completion": {"matches": 1, "rows": 2},
+    }
+
+
 def test_calibration_ece_and_probability_endpoints():
     result = calibration([0, 1, 0, 1], [0, 1, 0, 1])
     assert result["ece"] == 0
@@ -236,10 +253,18 @@ def test_dataset_manifest_digest_integrity_and_audit(tmp_path):
     audit = audit_dataset(build, canonical_dir, tmp_path / "audit")
     assert audit["last_pick_decisions"] == 60
     assert audit["accepted_match_contribution"] == {"2": 30}
-    with (build / "last_pick_decisions.jsonl").open("a") as stream:
+    decisions = build / "last_pick_decisions.jsonl"
+    original = decisions.read_text()
+    with decisions.open("a") as stream:
         stream.write("{}\n")
     with pytest.raises(Rejection, match="dataset_digest"):
         load_decisions(build)
+    rows = [json.loads(line) for line in original.splitlines()]
+    assert rows[0]["match_id"] == rows[1]["match_id"]
+    rows[1]["start_time"] += 1
+    decisions.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    with pytest.raises(Rejection, match="inconsistent_match_timestamp"):
+        load_decisions(build, verify=False)
 
 
 def test_role_review_deterministic_and_human_labels_blank(tmp_path):
@@ -272,7 +297,69 @@ def test_role_review_deterministic_and_human_labels_blank(tmp_path):
     )
 
 
-def test_tiny_end_to_end_run_and_reload(tmp_path):
+def test_role_review_pilot_hides_heuristic_and_preserves_reviewers_work(tmp_path):
+    source = Path(__file__).resolve().parents[1] / "reports/role_review_sample.csv"
+    output = tmp_path / "pilot.csv"
+    assert role_review_pilot(source, output)["cases"] == 30
+    with output.open() as stream:
+        rows = list(csv.DictReader(stream))
+    assert len({row["match_id"] for row in rows}) == 30
+    assert set(rows[0]) == {
+        "match_id",
+        "side",
+        "patch",
+        "rank_bracket",
+        "hero_ids",
+        "reviewed_pos1_slot",
+        "reviewer_confidence",
+        "notes",
+    }
+    with source.open() as stream:
+        strata = {(row["match_id"], row["side"]): row["stratum"] for row in csv.DictReader(stream)}
+    by_bucket = [strata[(row["match_id"], row["side"])].split(":")[0] for row in rows]
+    assert {bucket: by_bucket.count(bucket) for bucket in set(by_bucket)} == {
+        "abstention": 10,
+        "medium": 10,
+        "high": 10,
+    }
+    assert all(
+        not row[field]
+        for row in rows
+        for field in ("reviewed_pos1_slot", "reviewer_confidence", "notes")
+    )
+    with pytest.raises(FileExistsError):
+        role_review_pilot(source, output)
+
+
+def test_rolling_benchmark_reserves_last_eligible_week(tmp_path, monkeypatch):
+    _, source_rows = examples()
+    anchor = 4 * DAY  # Monday January 5 1970.
+    rows = [
+        replace(source_rows[0], start_time=anchor + day * DAY)
+        for day in range(42)
+        for _ in range(160)
+    ]
+    monkeypatch.setattr("lastpick.experiments.rolling.load_decisions", lambda _build: rows)
+    runs = []
+
+    def capture(_root, _build, _canonical, output, **kwargs):
+        runs.append((output.name, kwargs["window"]))
+
+    monkeypatch.setattr("lastpick.experiments.benchmark.benchmark", capture)
+    monkeypatch.setattr(
+        "lastpick.experiments.rolling.summarize_week", lambda run: {"run": run.name}
+    )
+    rolling_benchmark(tmp_path, tmp_path, tmp_path, tmp_path / "rolling", False)
+    report = json.loads((tmp_path / "rolling/coverage.json").read_text())
+    assert report["reserved_week"] == "1970-02-09"
+    assert report["eligible_weeks"] == 2
+    assert len(runs) == 2
+    assert runs[-1][1] == (anchor - WEEK, anchor + 3 * WEEK, anchor + 4 * WEEK, anchor + 5 * WEEK)
+    assert sorted(report["test_results"]) == sorted(name for name, _ in runs)
+
+
+@pytest.mark.parametrize("bounded", [False, True])
+def test_tiny_end_to_end_run_and_reload(tmp_path, bounded):
     canonical_dir, build = corpus(tmp_path)
     root = Path(__file__).resolve().parents[1]
     output = benchmark(
@@ -283,10 +370,20 @@ def test_tiny_end_to_end_run_and_reload(tmp_path):
         models=["global", "hero", "lr_draft"],
         minimum=1,
         repetitions=2,
+        window=(None, 55_000, 70_000, 80_000) if bounded else None,
     )
     original = json.loads((output / "metrics.json").read_text())
     repeated = evaluate_run(output, build, tmp_path / "evaluation.json", repetitions=2)
     assert repeated["lr_draft"]["metrics"] == original["lr_draft"]["partitions"]["test"]["metrics"]
+    if bounded:
+        assert repeated["lr_draft"]["metrics"]["count"] == 8
+        from lastpick.experiments.rolling import summarize_week
+
+        weekly = summarize_week(output)
+        assert weekly["models"]["lr_draft"]["picked_hero_coverage"] == 1
+        assert (
+            weekly["models"]["lr_draft"]["log_loss"] == repeated["lr_draft"]["metrics"]["log_loss"]
+        )
     assert (output / "artifacts.json").exists()
     assert classification([0, 1], [0.2, 0.8])["log_loss"] < 0.3
     audit_dataset(build, canonical_dir, tmp_path / "audit")

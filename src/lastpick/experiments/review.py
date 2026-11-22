@@ -16,6 +16,52 @@ from lastpick.experiments.audit import canonical_records
 from lastpick.roles.inference import make_inferer
 
 
+def role_review_pilot(source: Path, output: Path) -> dict[str, Any]:
+    """Select distinct matches and hide the heuristic and its input telemetry."""
+    fields = (
+        "match_id",
+        "side",
+        "patch",
+        "rank_bracket",
+        "hero_ids",
+        "reviewed_pos1_slot",
+        "reviewer_confidence",
+        "notes",
+    )
+    with source.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    selected: dict[str, dict[str, str]] = {}
+    for bucket in ("abstention", "medium", "high"):
+        count = 0
+        for row in rows:
+            match_id = row["match_id"]
+            if row["stratum"].split(":")[0] == bucket and match_id not in selected:
+                selected[match_id] = row
+                count += 1
+                if count == 10:
+                    break
+        if count < 10:
+            raise ValueError(f"fewer than ten distinct matches available for {bucket}")
+
+    # Mix confidence groups without revealing how rows were selected.
+    ordered = sorted(selected, key=lambda mid: hashlib.sha256(mid.encode()).hexdigest())
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("x", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
+        writer.writeheader()
+        for match_id in ordered:
+            row = selected[match_id]
+            writer.writerow(
+                {
+                    **{field: row[field] for field in fields[:5]},
+                    "reviewed_pos1_slot": "",
+                    "reviewer_confidence": "",
+                    "notes": "",
+                }
+            )
+    return {"output": str(output), "cases": len(ordered), "reviewers": 2}
+
+
 def role_review_sample(
     canonical: Path, output: Path, config: Config, size: int = 400, seed: int = 42
 ) -> dict[str, Any]:

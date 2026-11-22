@@ -33,6 +33,8 @@ class CrawlState:
     requests: int = 0
     request_day: str = ""
     config_fingerprint: str = ""
+    recent_head: int | None = None
+    scan_head: int | None = None
 
 
 class Collector:
@@ -42,6 +44,9 @@ class Collector:
         config: Config,
         source: MatchSource | None = None,
         adapter: MatchAdapter | None = None,
+        *,
+        recent: bool = False,
+        max_requests: int | None = None,
     ) -> None:
         self.config = config
         if adapter is None and config.source != "opendota":
@@ -51,7 +56,12 @@ class Collector:
             raise ValueError("adapter/source mismatch")
         self.raw_dir = root / config.paths.raw
         self.directory = root / config.paths.ingestion
-        self.state_path = self.directory / "state.json"
+        self.recent = recent
+        if max_requests is not None and max_requests < 1:
+            raise ValueError("max_requests must be positive")
+        self.max_requests = max_requests
+        self.run_requests = 0
+        self.state_path = self.directory / ("recent.json" if recent else "state.json")
         if self.state_path.exists():
             # Corrupted state fails loudly
             # never silently reset budgets/cursors
@@ -89,9 +99,12 @@ class Collector:
         if self.config.ingestion.daily_budget and today != self.state.request_day:
             self.state.requests = 0
         self.state.request_day = today
+        if self.max_requests is not None and self.run_requests >= self.max_requests:
+            raise BudgetExhausted("run_request_budget_exhausted")
         if self.state.requests >= self.config.ingestion.request_budget:
             raise BudgetExhausted("request_budget_exhausted")
         self.state.requests += 1
+        self.run_requests += 1
         self.save()
 
     def cache_or_fetch(self, entry: dict[str, Any]) -> tuple[Any, bool]:
@@ -133,6 +146,21 @@ class Collector:
         )
         return payload, True
 
+    def finish_page(self) -> None:
+        next_cursor = self.state.page_cursor
+        self.state.page_cursor = None
+        if self.recent and (
+            self.state.recent_head is None
+            or next_cursor is None
+            or next_cursor <= self.state.recent_head
+        ):
+            self.state.recent_head = self.state.scan_head or self.state.recent_head
+            self.state.scan_head = None
+            self.state.cursor = None
+        else:
+            self.state.cursor = next_cursor
+        self.save()
+
     def run(self, max_pages: int | None = None) -> dict[str, int]:
         assert self.source is not None
         counts: Counter[str] = Counter()
@@ -140,10 +168,8 @@ class Collector:
         self.raw_dir.mkdir(parents=True, exist_ok=True)
         total = len(raw_paths(self.raw_dir))
         if not self.state.pending and self.state.page_cursor is not None:
-            self.state.cursor = self.state.page_cursor
-            self.state.page_cursor = None
-            self.save()
-        while total < self.config.ingestion.target_matches:
+            self.finish_page()
+        while self.recent or total < self.config.ingestion.target_matches:
             if not self.state.pending:
                 if max_pages is not None and pages >= max_pages:
                     break
@@ -158,6 +184,8 @@ class Collector:
                     break
                 pages += 1
                 if not page.entries:
+                    if self.recent and self.state.scan_head is not None:
+                        self.finish_page()
                     break
                 # Provider-independent validation
                 # don't trust third-party adapters blindly
@@ -170,7 +198,12 @@ class Collector:
                 ):
                     raise InvalidPayload("non_advancing_cursor")
                 unique = {e["match_id"]: e for e in page.entries}
-                self.state.pending = [unique[k] for k in sorted(unique, reverse=True)]
+                if self.recent and self.state.scan_head is None:
+                    self.state.scan_head = max(unique)
+                lower = self.state.recent_head if self.recent else None
+                self.state.pending = [
+                    unique[k] for k in sorted(unique, reverse=True) if lower is None or k > lower
+                ]
                 self.state.page_cursor = page.next_cursor
                 self.save()
             while self.state.pending:
@@ -191,7 +224,25 @@ class Collector:
                         validate_integrity(match)
                         validate_filters(match, self.config.filters)
                         reconstruct(match)
-                    except (FetchFailure, BudgetExhausted) as error:
+                        if self.recent:
+                            counts[f"patch_{match.patch}"] += 1
+                            if (
+                                sum(
+                                    p.snapshot("lh_t", 10) is not None
+                                    and p.snapshot("gold_t", 10) is not None
+                                    for p in match.players
+                                )
+                                == 10
+                            ):
+                                counts[f"patch_{match.patch}_full_farm_10"] += 1
+                    except BudgetExhausted as error:
+                        if not self.recent:
+                            counts["fetch_failure"] += 1
+                        counts[str(error)] += 1
+                        if self.recent:
+                            counts["requests"] = self.run_requests
+                        return dict(counts)
+                    except FetchFailure as error:
                         # Keep failed entries pending
                         # Restart retries before advancing cursor
                         counts["fetch_failure"] += 1
@@ -199,6 +250,8 @@ class Collector:
                             self.directory / "last_failure.json",
                             {"match_id": match_id, "kind": "fetch_failure", "reason": str(error)},
                         )
+                        if self.recent:
+                            counts["requests"] = self.run_requests
                         return dict(counts)
                     except (Rejection, InvalidPayload) as error:
                         reason = error.reason if isinstance(error, Rejection) else str(error)
@@ -211,6 +264,8 @@ class Collector:
                             outcome_path, {"match_id": match_id, "kind": kind, "reason": reason}
                         )
                         counts[kind] += 1
+                        if self.recent:
+                            counts[f"{kind}:{reason}"] += 1
                     else:
                         atomic_json(
                             outcome_path,
@@ -219,11 +274,13 @@ class Collector:
                         counts["accepted"] += 1
                 self.state.pending.pop(0)
                 self.save()
-                if total >= self.config.ingestion.target_matches:
+                if not self.recent and total >= self.config.ingestion.target_matches:
                     # Remaining page is saved for a subsequent run with
                     # a larger target
                     return dict(counts)
-            self.state.cursor = self.state.page_cursor
-            self.state.page_cursor = None
-            self.save()
+            self.finish_page()
+            if self.recent and self.state.cursor is None:
+                break
+        if self.recent:
+            counts["requests"] = self.run_requests
         return dict(counts)

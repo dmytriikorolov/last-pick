@@ -58,7 +58,7 @@ def export_site(output):
         loader=FileSystemLoader(ROOT / "web/templates"), autoescape=select_autoescape()
     )
     html = env.get_template("index.html").render(
-        heroes=heroes, url_for=lambda endpoint, filename: f"/static/{filename}"
+        heroes=heroes, candidate_pool=pool, url_for=lambda endpoint, filename: f"/static/{filename}"
     )
     html = html.replace(
         '<script defer src="/static/app.js"></script>',
