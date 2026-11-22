@@ -1,4 +1,11 @@
+import json
+import random
+import shutil
+import subprocess
+from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 from web.app import create_app
 
@@ -56,3 +63,62 @@ def test_requests_do_not_reload_or_train():
         patch.object(model, "train", side_effect=AssertionError("trained")),
     ):
         assert client.post("/api/recommend", json=draft()).status_code == 200
+
+
+def test_carry_pool_filters_before_ranking():
+    body = draft()
+    excluded = {
+        row["hero_id"] for row in client.post("/api/recommend", json=body).json["recommendations"]
+    }
+    available = sorted(
+        set(app.extensions["recommender"]["pool"])
+        - excluded
+        - set(body["allies"] + body["enemies"])
+    )
+    body["candidate_pool"] = available[:2]
+    response = client.post("/api/recommend", json=body)
+    assert response.status_code == 200
+    assert {r["hero_id"] for r in response.json["recommendations"]} == set(available[:2])
+    body["candidate_pool"] = []
+    assert client.post("/api/recommend", json=body).json["recommendations"] == []
+    for invalid in (None, [True], [99999], [available[0], available[0]]):
+        body["candidate_pool"] = invalid
+        assert client.post("/api/recommend", json=body).status_code == 400
+
+
+@pytest.mark.skipif(
+    shutil.which("node") is None, reason="Node.js is required for browser model parity"
+)
+def test_static_model_matches_flask_with_carry_pool():
+    rng = random.Random(42)
+    recommender = app.extensions["recommender"]
+    drafts = []
+    for index in range(12):
+        heroes = rng.sample(recommender["hero_ids"], 11)
+        body = {"allies": heroes[:4], "enemies": heroes[4:8], "banned": heroes[8:]}
+        if index % 2:
+            body["candidate_pool"] = rng.sample(recommender["pool"], 8)
+        drafts.append(body)
+    static = subprocess.run(
+        [
+            "node",
+            "-e",
+            """
+            const {rank} = require('./site/public/static/model.js');
+            const model = require('./site/public/static/model.json');
+            const drafts = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+            console.log(JSON.stringify(drafts.map(draft => rank(model, draft))));
+            """,
+        ],
+        input=json.dumps(drafts),
+        cwd=Path(__file__).resolve().parents[1],
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    for body, actual in zip(drafts, json.loads(static.stdout), strict=True):
+        expected = client.post("/api/recommend", json=body).json["recommendations"]
+        assert [row["hero_id"] for row in actual] == [row["hero_id"] for row in expected]
+        assert [row["model_score"] for row in actual] == pytest.approx(
+            [row["model_score"] for row in expected], abs=1e-6
+        )

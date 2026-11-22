@@ -12,6 +12,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 
 from lastpick.data.io import atomic_json
+from lastpick.data.schemas import match_from_record
 from lastpick.evaluation.splits import temporal_split
 from lastpick.experiments.audit import utc
 from lastpick.experiments.data import (
@@ -63,6 +64,10 @@ SUITE = {
     "nn_draft": ("nn", BASE),
     "nn_full": ("nn", RICH),
 }
+
+
+class InsufficientBenchmarkData(ValueError):
+    """The selected partition has too few eligible examples for a benchmark."""
 
 
 def write_csv(path, records):
@@ -123,6 +128,32 @@ def evaluate_predictions(rows, probabilities, seed, repetitions):
     }
 
 
+def completed_partition(rows, canonical, cutoff):
+    reasons = {}
+    eligible = set()
+    for decision in rows:
+        match_id = decision.match_id
+        if match_id in eligible or match_id in reasons:
+            continue
+        match = match_from_record(json.loads((canonical / f"{match_id}.json").read_text()))
+        if match.match_id != match_id or match.start_time != decision.start_time:
+            raise ValueError(f"canonical match identity or start time differs for {match_id}")
+        if match.start_time is None or match.duration is None:
+            reasons[match_id] = "unknown_completion"
+        elif match.start_time + match.duration >= cutoff:
+            reasons[match_id] = "unfinished_at_cutoff"
+        else:
+            eligible.add(match_id)
+    excluded = {
+        reason: {
+            "matches": sum(value == reason for value in reasons.values()),
+            "rows": sum(reasons.get(row.match_id) == reason for row in rows),
+        }
+        for reason in ("unknown_completion", "unfinished_at_cutoff")
+    }
+    return [row for row in rows if row.match_id in eligible], excluded
+
+
 def benchmark(
     root: Path,
     build: Path,
@@ -137,6 +168,7 @@ def benchmark(
     patch_holdout: bool = False,
     max_epochs: int = 20,
     holdout_start: int | None = None,
+    window: tuple[int | None, int, int, int] | None = None,
 ) -> Path:
     selected = models or [name for name in SUITE if name not in EXPLORATORY_MODELS]
     if unknown := set(selected) - set(SUITE):
@@ -147,7 +179,24 @@ def benchmark(
     canonical_verification = verify_canonical(build, canonical)
     if patch_holdout and holdout_start is not None:
         raise ValueError("choose patch holdout or a time holdout")
-    if patch_holdout or holdout_start is not None:
+    if window is not None:
+        if patch_holdout or holdout_start is not None:
+            raise ValueError("choose a benchmark window or a holdout")
+        train_start, cutoff, test_cutoff, test_end = window
+        if not cutoff < test_cutoff < test_end or (
+            train_start is not None and train_start >= cutoff
+        ):
+            raise ValueError("benchmark window cutoffs must be chronological")
+        parts = {
+            "train": [
+                d
+                for d in rows
+                if d.start_time < cutoff and (train_start is None or d.start_time >= train_start)
+            ],
+            "validation": [d for d in rows if cutoff <= d.start_time < test_cutoff],
+            "test": [d for d in rows if test_cutoff <= d.start_time < test_end],
+        }
+    elif patch_holdout or holdout_start is not None:
         patches = sorted({d.patch for d in rows if d.patch is not None})
         supported = [p for p in patches if sum(d.patch == p for d in rows) >= 1000]
         if patch_holdout and len(supported) < 2:
@@ -177,10 +226,16 @@ def benchmark(
             "validation": list(split.validation),
             "test": list(split.test),
         }
+    parts["train"], excluded_train = completed_partition(parts["train"], canonical, cutoff)
+    parts["validation"], excluded_validation = completed_partition(
+        parts["validation"], canonical, test_cutoff
+    )
     train, validation, test = parts.values()
+    if any(len({d.outcome for d in group}) < 2 for group in parts.values()):
+        raise InsufficientBenchmarkData("insufficient outcomes after applying completion cutoffs")
     pool = candidate_pool(train, minimum)
     if len(pool) < 2:
-        raise ValueError("insufficient training-supported candidates")
+        raise InsufficientBenchmarkData("insufficient training-supported candidates")
     output.mkdir(parents=True)
     version = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     status = subprocess.check_output(["git", "status", "--porcelain"], cwd=root, text=True)
@@ -197,6 +252,9 @@ def benchmark(
         "candidate_minimum_training_rows": minimum,
         "evaluation_candidate_pool": list(pool),
         "split": split_summary(parts, cutoff, test_cutoff),
+        "test_end": window[-1] if window else None,
+        "training_start": window[0] if window else None,
+        "completion_exclusions": {"train": excluded_train, "validation": excluded_validation},
         "patch_holdout": patch_holdout,
         "holdout_start": holdout_start,
         "history_scope": "training match IDs only; completion < decision start; evaluation frozen at validation cutoff",
@@ -449,6 +507,12 @@ def render_report(config, results, winners):
         json.dumps(config["split"], indent=2),
         "```",
         "",
+        "Rows excluded by completion cutoff",
+        "",
+        "```json",
+        json.dumps(config.get("completion_exclusions", {}), indent=2),
+        "```",
+        "",
         "## probability comparison",
         "",
         "| model | split | accuracy | auc | log loss | brier | ece |",
@@ -507,7 +571,12 @@ def evaluate_run(
     for name, expected in checksums.items():
         if digest(run / name) != expected:
             raise ValueError(f"run artifact digest mismatch: {name}")
-    rows = [d for d in load_decisions(build) if d.start_time >= config["split"]["test_cutoff"]]
+    end = config.get("test_end")
+    rows = [
+        d
+        for d in load_decisions(build)
+        if d.start_time >= config["split"]["test_cutoff"] and (end is None or d.start_time < end)
+    ]
     # pickles are local experiment artifacts
     # never load an untrusted downloaded model
     with (run / "history.pkl").open("rb") as stream:

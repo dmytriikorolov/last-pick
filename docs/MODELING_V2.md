@@ -58,6 +58,8 @@ chronological match-level partitions keep equal start timestamps together; candi
 
 primary cutoffs are 1787468454 and 1787517986, corresponding to 2026-08-23T07:00:54+00:00 and 2026-08-23T20:46:26+00:00
 
+the tables below record the original runs. The benchmark now excludes training and validation outcomes that were still pending at the next cutoff. See [the corrected reruns](#completion-cutoff-reruns).
+
 every accepted row, including rare/unseen chosen heroes, remains in classification; ranking eligibility is reported separately
 
 ## inputs and leakage prevention
@@ -415,7 +417,9 @@ python -m lastpick benchmark --seed 42 --bootstrap 200 --output experiments/mode
 python -m lastpick benchmark --models global hero hero_side lr_context lr_full catboost_full lightgbm_full nn_full --holdout-start 1785542400 --seed 42 --output experiments/modeling-v2/new-holdout
 python -m lastpick benchmark --models catboost_static catboost_profile catboost_pairs --seed 42 --output experiments/modeling-v2/new-tree-ablations
 python -m lastpick evaluate --run experiments/modeling-v2/new-primary --output experiments/modeling-v2/reloaded.json
+python -m lastpick rolling-benchmark --output experiments/modeling-v2/new-weekly
 python -m lastpick role-review-sample --size 400
+python -m lastpick role-review-sample --pilot
 python -m lastpick benchmark-report --run experiments/modeling-v2/new-primary --holdout experiments/modeling-v2/new-holdout --ablations experiments/modeling-v2/new-tree-ablations --reevaluation experiments/modeling-v2/reloaded.json --audit reports/modeling-v2/generated/audit.json --output reports/modeling-v2 --document docs/MODELING_V2.md
 ```
 
@@ -424,6 +428,51 @@ use --build to select a retained dataset build, --models to select the suite, --
 local Apple Silicon runs used arch -arm64 with the existing venv and optional packages under /private/tmp/lastpick-research; LightGBM used the OpenMP library already bundled with PyTorch
 
 saved-model reevaluation reproduces every primary metric exactly; artifact hashes detect dataset/run corruption before reloading
+
+## completion cutoff reruns
+
+The original benchmark split by match start, which allowed some outcomes into
+fitting or tuning before those matches ended. The corrected benchmark uses
+`start_time + duration < cutoff` for training labels before validation and
+for validation labels before test. Both sides of a match are excluded together.
+The test windows are the same as in the original runs.
+
+| Run | Train rows removed | Validation rows removed | Train / validation / test rows |
+| --- | ---: | ---: | --- |
+| Main | 165 from 137 matches | 637 from 508 matches | 30,729 / 5,955 / 6,843 |
+| June to August | 368 from 314 matches | 0 | 19,772 / 5,097 / 19,092 |
+
+The main validation winner remained LightGBM with historical features. Its
+test log loss rose from 0.684811 to 0.686115. Sigmoid calibration moved the
+corrected result to 0.686065. CatBoost with raw draft features had the lowest descriptive test
+log loss at 0.684635 and still put one hero first in 70.6% of test drafts.
+
+CatBoost with historical features became the June validation winner and
+scored 0.688677 test log loss in August. The June-fitted sigmoid moved that
+to 0.689660. Context logistic regression still scored worse than the global
+prior in August (0.693696 versus 0.693093).
+
+The 20 main and 8 holdout models used seed 42, the original candidate support
+and hyperparameter settings, and 200 match-bootstrap replicates. NumPy was
+2.5.5 for the corrected runs and 2.5.2 for the original runs. Reloading all 28
+saved models reproduced the test metrics exactly. The complete
+local outputs are in `experiments/modeling-v2/completion-main-seed42` and
+`experiments/modeling-v2/completion-june-seed42`.
+[Model comparison](../reports/modeling-v2/completion-cutoff-comparison.csv)
+
+The weekly benchmark checks Monday–Sunday UTC windows. Each test and
+validation week needs observations on all seven days and at least 1,000
+decisions. The recent training window needs at least 3,000 decisions before
+the completion exclusion. Each fold compares all available training history
+against the 28 days before validation. The latest eligible week is reserved by default.
+The saved 4v4 corpus has no eligible folds out of 13 UTC weeks. See the coverage
+report before using `--include-final` on a future build.
+
+The blinded role pilot selects 30 distinct matches from the original review
+pack. Give two reviewers separate copies and have each record a position-1
+slot and confidence. Leave the slot blank and record the reason if the role
+cannot be established independently. Compare answers by match ID and side only
+after both reviewers have finished.
 
 ## checks and engineering
 

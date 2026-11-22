@@ -10,6 +10,8 @@ for the next generation of models.
 - [Foundation v2 architecture and operations](FOUNDATION_V2.md): package, schemas,
   source ingestion, datasets, roles, historical statistics, commands and limitations.
 - [ISP v1 baseline](ISP_V1.md): original experiment and saved reference results.
+- [Modeling and evaluation v2](MODELING_V2.md) covers the full 4v4 benchmark.
+- [Repo review and next steps](NEXT_STEPS.md) covers the open research questions and proposed work.
 - [Project instructions](../AGENTS.md): canonical knowledge for future Codex sessions.
 - [Web demo](../web/README.md): Flask and static export instructions.
 
@@ -50,5 +52,40 @@ The model learns chosen-carry win/loss, not counterfactual rankings of unpicked 
 
 Use the `isp-v1` tag with the original local data to reproduce the exact ISP
 implementation. Current training fixes minibatch quality weighting and historical
-completion-time cutoffs and writes separate Foundation artifacts. A full v2 4v4
-baseline experiment is intentionally the next milestone.
+feature cutoffs and writes separate Foundation artifacts. The 4v4 benchmark uses
+the canonical dataset and stores experimental models separately.
+
+## Code map
+
+Graphify is optional. From the repo root, build or refresh the local code graph:
+
+```sh
+graphify extract . --code-only --max-workers 4
+graphify cluster-only . --no-label --no-viz
+graphify path benchmark HistoricalFeatures
+graphify explain rank_candidates
+```
+
+Read `graphify-out/GRAPH_REPORT.md` for an overview. The graph indexes source
+and tests with a local parser. The generated graph stays local, and the docs
+and data reports are read directly.
+
+## Anonymous collection and weekly checks
+
+Use a separate root for a small pilot. For filtered discovery, copy
+`config/default.toml` and set `[ingestion].discovery` to `"explorer"` in your copy.
+
+```sh
+python -m lastpick --root /path/to/pilot --config config/default.toml ingest --anonymous --recent --max-pages 1 --max-requests 50
+python -m lastpick rolling-benchmark --output experiments/modeling-v2/weekly
+python -m lastpick role-review-sample --pilot
+```
+
+Anonymous mode ignores environment credentials. The per-run cap counts
+discovery, match details, and retries together. Recent collection uses a
+separate cursor and resumes a partly processed page. Reuse the same root and
+config to resume it. Start a separate state directory when changing discovery
+policy. Weekly coverage records gaps and reserves the latest eligible week.
+Use `--include-final` in a fresh run after fixing the comparison procedure.
+The review command writes a blinded 30-case CSV. Give each reviewer a copy and
+ask them to record the carry slot or mark uncertain cases in the notes.

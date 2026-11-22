@@ -33,7 +33,7 @@ def create_app():
 
     @app.get("/")
     def index():
-        return render_template("index.html", heroes=heroes)
+        return render_template("index.html", heroes=heroes, candidate_pool=pool)
 
     @app.post("/api/recommend")
     def recommend():
@@ -57,10 +57,20 @@ def create_app():
             return jsonify(error="The same hero cannot appear on both teams."), 400
         if set(visible) & set(groups["banned"]):
             return jsonify(error="A drafted hero cannot also be banned."), 400
+        available = pool
+        if "candidate_pool" in body:
+            candidates = body["candidate_pool"]
+            if not isinstance(candidates, list) or any(
+                type(hero) is not int or hero not in known_ids for hero in candidates
+            ):
+                return jsonify(error="candidate_pool must be an array of known hero IDs."), 400
+            if len(set(candidates)) != len(candidates):
+                return jsonify(error="candidate_pool contains duplicate heroes."), 400
+            available = set(pool) & set(candidates)
         ranking = rank_candidates(
             model,
             hero_ids,
-            pool,
+            available,
             groups["allies"],
             groups["enemies"],
             top_n=5,

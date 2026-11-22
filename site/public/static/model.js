@@ -58,7 +58,8 @@
   function rank(model, draft) {
     const mapping = new Map(model.hero_ids.map((id, i) => [id, i + 1]));
     const visible = new Set([...draft.allies, ...draft.enemies, ...draft.banned]);
-    return model.candidate_pool.filter(id => !visible.has(id)).map(id => ({
+    const favorites = draft.candidate_pool === undefined ? null : new Set(draft.candidate_pool);
+    return model.candidate_pool.filter(id => !visible.has(id) && (!favorites || favorites.has(id))).map(id => ({
       hero_id: id, hero_name: model.names[id],
       model_score: score(model, id, draft.allies, draft.enemies, mapping)
     })).sort((a, b) => b.model_score - a.model_score || a.hero_id - b.hero_id).slice(0, 5);
