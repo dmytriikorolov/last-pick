@@ -26,10 +26,12 @@ to manage bans. Save and reopen named drafts, or copy a link that shares picks
 and bans. Saved drafts and favorites stay in your browser.
 
 Open My Dota for a six-month calendar and recent matches. Try the example or
-load a public OpenDota account by ID or numeric Steam profile link. The profile
+load a public OpenDota account by ID, OpenDota player link, or numeric Steam profile link. The profile
 makes one anonymous OpenDota request per load and caches the most recent
-account's results locally for 30 minutes. Favorites can limit the draft ranking
-to the carries you play.
+account's results locally for 30 minutes. Loading your history also selects
+up to eight supported heroes by matches played in the displayed period, with
+recent play breaking ties. The draft filter includes those heroes and your
+starred favorites. You can turn it off to see the full model pool.
 
 The recommendation button enables at 4v4 and ranks up to five available heroes
 from the ISP checkpoint. The real profile needs an internet connection.
