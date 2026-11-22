@@ -3,6 +3,7 @@
 
   const DAY = 86_400_000;
   const MATCH_LIMIT = 500;
+  const AUTO_POOL_LIMIT = 8;
   const CACHE_AGE = 30 * 60 * 1000;
   const ACCOUNT_MAX = 4_294_967_295n;
   const STEAM_ID_BASE = 76_561_197_960_265_728n;
@@ -21,8 +22,11 @@
       } catch {
         return null;
       }
-      const path = url.pathname.match(/^\/profiles\/(\d{17})\/?$/);
-      if (!path || url.protocol !== 'https:' || url.hostname !== 'steamcommunity.com'
+      const path = url.hostname === 'steamcommunity.com'
+        ? url.pathname.match(/^\/profiles\/(\d{17})\/?$/)
+        : /^(?:www\.)?opendota\.com$/.test(url.hostname)
+          ? url.pathname.match(/^\/players\/(\d{1,10})\/?$/) : null;
+      if (!path || url.protocol !== 'https:'
           || url.username || url.password || url.port) return null;
       value = path[1];
     }
@@ -84,6 +88,20 @@
     return { heroes, wins, finished };
   }
 
+  function automaticPool(matches, supported) {
+    const played = new Map();
+    for (const { hero, date } of matches) {
+      if (!supported.has(hero)) continue;
+      const entry = played.get(hero) || { hero, games: 0, latest: date };
+      entry.games++;
+      entry.latest = Math.max(entry.latest, date);
+      played.set(hero, entry);
+    }
+    return [...played.values()]
+      .sort((a, b) => b.games - a.games || b.latest - a.latest || a.hero - b.hero)
+      .slice(0, AUTO_POOL_LIMIT);
+  }
+
   function exampleRows(end) {
     let seed = 8731;
     function random() {
@@ -112,7 +130,7 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseAccount, calendarRange, exampleRows, matchRows, summary };
+    module.exports = { parseAccount, calendarRange, exampleRows, matchRows, summary, automaticPool };
   }
   if (typeof document === 'undefined') return;
 
@@ -123,6 +141,7 @@
   const supported = new Set(JSON.parse(document.getElementById('candidate-data').textContent));
   const favorites = window.lastpickFavorites;
   let current;
+  let historyPool = [];
   let daySelected;
   let request;
   let restore;
@@ -135,7 +154,7 @@
         <p>See when you play and build a carry pool for your next draft.</p>
       </div>
       <form class="profile-form">
-        <label for="profile-account">OpenDota ID or Steam profile link</label>
+        <label for="profile-account">OpenDota ID or profile link</label>
         <div class="profile-form-actions">
           <input id="profile-account" name="account" type="text" maxlength="160" placeholder="e.g. 86745912" spellcheck="false" autocomplete="off" required>
           <button type="submit" class="profile-primary">Load profile</button>
@@ -181,7 +200,7 @@
     </div>
     <section class="profile-card profile-pool" aria-labelledby="profile-pool-title">
       <div class="profile-card-head">
-        <div><h2 id="profile-pool-title">My carry pool</h2><p>Favorites you can use to narrow draft recommendations.</p></div>
+        <div><h2 id="profile-pool-title">My carry pool</h2><p>Up to eight supported heroes from your match history, plus your favorites.</p></div>
         <a href="#draft">Open draft</a>
       </div>
       <ul class="profile-pool-list"></ul>
@@ -289,19 +308,24 @@
 
     const pool = view.querySelector('.profile-pool-list');
     pool.replaceChildren();
-    for (const id of favorites.ids()) {
+    for (const id of favorites.poolIds()) {
       const hero = heroes.get(id);
       if (!hero) continue;
       const row = element('li', 'profile-list-row');
       const details = element('div', 'profile-row-detail');
+      const fromHistory = historyPool.find(entry => entry.hero === id);
+      const description = fromHistory ? `Auto-selected · ${matchCount(fromHistory.games)} played`
+        : supported.has(id) ? 'Favorite · Can be recommended' : 'Outside the model’s carry pool';
       details.append(
         element('strong', null, hero.name),
-        element('span', null, supported.has(id) ? 'Can be recommended' : 'Outside the model’s carry pool')
+        element('span', null, description)
       );
       row.append(portrait(hero), details, favoriteButton(hero));
       pool.append(row);
     }
-    if (!pool.children.length) note(pool, 'Choose a star to add a hero to your pool.');
+    if (!pool.children.length) note(pool, current.example
+      ? 'Load your profile to build a pool automatically, or star heroes to add them yourself.'
+      : 'No supported carries found in this history. Star heroes to add your favorites.');
   }
 
   function selectDay(day) {
@@ -441,6 +465,9 @@
 
   function displayRows(account, rows, cached) {
     const matches = matchRows(rows);
+    const { start, end } = calendarRange();
+    historyPool = automaticPool(matches.filter(match => match.date >= start && match.date < end + DAY), supported);
+    favorites.setHistoryPool(historyPool.map(entry => entry.hero));
     showProfile({ account, matches, capped: rows.length >= MATCH_LIMIT });
     if (current.matches.length === 0) {
       status.textContent = 'OpenDota returned no matches for this period. Check the ID or enable Expose Public Match Data in Dota.';
@@ -455,7 +482,7 @@
     event.preventDefault();
     const account = parseAccount(input.value);
     if (!account) {
-      status.textContent = 'Enter a numeric OpenDota account ID or a Steam link ending in /profiles/ followed by the numeric ID.';
+      status.textContent = 'Enter an OpenDota account ID, an OpenDota player link, or a Steam link with a numeric profile ID.';
       input.focus();
       return;
     }

@@ -6,6 +6,7 @@
   const groups = ['allies', 'enemies', 'banned'];
   const teamNames = {allies: 'your team', enemies: 'enemy team'};
   const favoritesKey = 'lastpick.favorites.v1';
+  const poolFilterKey = 'lastpick.pool-filter.v1';
   const draftsKey = 'lastpick.drafts.v1';
   const status = byElement('status');
   const savedStatus = byElement('saved-status');
@@ -19,6 +20,9 @@
   const slots = new Map();
   const favoriteIds = readStorage(favoritesKey);
   const favorites = new Set(Array.isArray(favoriteIds) ? favoriteIds.filter(id => byId.has(id)) : []);
+  const savedFilter = readStorage(poolFilterKey);
+  let poolPreference = typeof savedFilter === 'boolean' ? savedFilter : null;
+  let historyPool = [];
   const storedDrafts = readStorage(draftsKey);
   let savedDrafts = Array.isArray(storedDrafts) ? storedDrafts.filter(isSavedDraft) : [];
   let draft = {allies: [], enemies: [], banned: []};
@@ -45,8 +49,17 @@
     }
   }
 
+  function poolIds() {
+    return [...new Set([...historyPool, ...favorites])];
+  }
+
   window.lastpickFavorites = {
-    ids: () => [...favorites],
+    poolIds,
+    setHistoryPool(ids) {
+      historyPool = ids;
+      poolFilter.checked = poolPreference ?? (historyPool.length > 0);
+      changeDraft();
+    },
     has: id => favorites.has(id),
     toggle(id) {
       if (!byId.has(id)) return;
@@ -114,9 +127,11 @@
     byElement('save-draft').disabled = !hasDraft;
     byElement('share-draft').disabled = !hasDraft;
     const favoriteCount = [...favorites].filter(id => supported.has(id)).length;
-    byElement('pool-hint').textContent = favorites.size
+    byElement('pool-hint').textContent = historyPool.length
+      ? `${poolIds().filter(id => supported.has(id)).length} supported heroes from your matches and favorites`
+      : favorites.size
       ? `${favoriteCount} of ${favorites.size} favorites supported by the model`
-      : 'Star heroes to build your carry pool.';
+      : 'Load My Dota to build a pool automatically, or star heroes.';
     for (const [id, {card, pick, star, badge}] of roster) {
       const side = ['allies', 'enemies'].find(team => draft[team].includes(id));
       const banned = draft.banned.includes(id);
@@ -128,7 +143,9 @@
       badge.hidden = !selected;
       pick.setAttribute('aria-label', selected ? `${name}, ${badge.textContent}` : name);
       star.textContent = favorite ? '★' : '☆';
-      star.title = favorite ? `Remove ${name} from carry pool` : `Add ${name} to carry pool`;
+      star.title = historyPool.includes(id)
+        ? `${favorite ? 'Unstar' : 'Star'} ${name}`
+        : favorite ? `Remove ${name} from carry pool` : `Add ${name} to carry pool`;
       star.setAttribute('aria-label', star.title);
       star.setAttribute('aria-pressed', favorite);
     }
@@ -345,7 +362,7 @@
   async function rankCarries() {
     const requestedRevision = revision;
     const payload = copyDraft(draft);
-    if (poolFilter.checked) payload.candidate_pool = [...favorites].filter(id => supported.has(id));
+    if (poolFilter.checked) payload.candidate_pool = poolIds().filter(id => supported.has(id));
     pending = true;
     results.hidden = true;
     renderDraft();
@@ -422,7 +439,12 @@
     saveDraftList(renamed ? `Renamed to ${name}.` : `Saved ${name}.`, id);
   });
   recommend.addEventListener('click', rankCarries);
-  poolFilter.addEventListener('change', () => changeDraft());
+  poolFilter.checked = poolPreference ?? false;
+  poolFilter.addEventListener('change', () => {
+    poolPreference = poolFilter.checked;
+    writeStorage(poolFilterKey, poolPreference);
+    changeDraft();
+  });
   window.addEventListener('lastpick:favorites', event => {
     if (poolFilter.checked) changeDraft();
     else renderDraft();
